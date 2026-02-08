@@ -26,22 +26,33 @@ export function DashboardStats() {
 
   const fetchStats = async () => {
     try {
-      const [engineers, equipment, withdrawals] = await Promise.all([
-        fetch('/api/engineers').then((r) => r.json()),
-        fetch('/api/equipment').then((r) => r.json()),
-        fetch('/api/withdrawals').then((r) => r.json()),
+      const [engResponse, equipResponse, withResponse] = await Promise.all([
+        fetch('/api/engineers'),
+        fetch('/api/equipment'),
+        fetch('/api/withdrawals'),
       ]);
+
+      const engineers = engResponse.ok ? await engResponse.json() : [];
+      const equipment = equipResponse.ok ? await equipResponse.json() : [];
+      const withdrawals = withResponse.ok ? await withResponse.json() : [];
 
       const lowStockItems = equipment.filter((e: any) => e.quantity < 5).length;
 
       setStats({
-        totalEngineers: engineers.length,
-        totalEquipment: equipment.length,
-        totalWithdrawals: withdrawals.length,
+        totalEngineers: Array.isArray(engineers) ? engineers.length : 0,
+        totalEquipment: Array.isArray(equipment) ? equipment.length : 0,
+        totalWithdrawals: Array.isArray(withdrawals) ? withdrawals.length : 0,
         lowStockItems,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
+      // Use zero values on error
+      setStats({
+        totalEngineers: 0,
+        totalEquipment: 0,
+        totalWithdrawals: 0,
+        lowStockItems: 0,
+      });
     } finally {
       setLoading(false);
     }

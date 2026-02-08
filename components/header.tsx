@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { LogoutButton } from '@/components/logout-button';
 
 interface HeaderProps {
   siteName?: string;
@@ -10,19 +11,22 @@ interface HeaderProps {
 export function Header({ siteName, compact = false }: HeaderProps) {
   if (compact) {
     return (
-      <div className="flex items-start gap-2 p-2 bg-white">
-        <Image
-          src="/logo.png"
-          alt="CIMARA Logo"
-          width={40}
-          height={40}
-          className="object-contain"
-        />
-        <div>
-          <h1 className="text-sm font-bold text-primary">CIMARA</h1>
-          <p className="text-xs text-muted-foreground">Quality brings reliability</p>
-          {siteName && <p className="text-xs font-semibold text-primary">Site: {siteName}</p>}
+      <div className="flex items-start justify-between p-2 bg-white">
+        <div className="flex items-start gap-2">
+          <Image
+            src="/logo.png"
+            alt="CIMARA Logo"
+            width={40}
+            height={40}
+            className="object-contain"
+          />
+          <div>
+            <h1 className="text-sm font-bold text-primary">CIMARA</h1>
+            <p className="text-xs text-muted-foreground">Quality brings reliability</p>
+            {siteName && <p className="text-xs font-semibold text-primary">Site: {siteName}</p>}
+          </div>
         </div>
+        <LogoutButton />
       </div>
     );
   }
@@ -43,11 +47,14 @@ export function Header({ siteName, compact = false }: HeaderProps) {
             <p className="text-sm opacity-90">Quality brings reliability</p>
           </div>
         </div>
-        {siteName && (
-          <div className="text-right pt-1">
-            <p className="text-lg font-semibold">Site: {siteName}</p>
-          </div>
-        )}
+        <div className="flex items-center gap-4 pt-2">
+          {siteName && (
+            <div className="text-right">
+              <p className="text-lg font-semibold">{siteName}</p>
+            </div>
+          )}
+          <LogoutButton />
+        </div>
       </div>
     </div>
   );
