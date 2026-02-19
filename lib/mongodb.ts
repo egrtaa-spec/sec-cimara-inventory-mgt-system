@@ -1,5 +1,3 @@
-// lib/mongodb.ts
-
 import { MongoClient, Db } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
@@ -25,6 +23,8 @@ if (process.env.NODE_ENV === "development") {
   client = new MongoClient(uri);
   clientPromise = client.connect();
 }
+
+export { clientPromise };
 
 export async function getDb(dbName: string): Promise<Db> {
   const client = await clientPromise;

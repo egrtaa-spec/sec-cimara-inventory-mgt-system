@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+// Ensure this import path matches your project structure
+import { AdminLoginModal } from '@/components/admin-login-modal'; 
 
 const slides = [
   {
@@ -33,6 +35,8 @@ interface SlideshowProps {
 export function Slideshow({ onLoginClick }: SlideshowProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
+  // Replaced the broken function with actual React state
+  const [adminOpen, setAdminOpen] = useState(false); 
 
   useEffect(() => {
     if (!isAutoPlay) return;
@@ -91,13 +95,31 @@ export function Slideshow({ onLoginClick }: SlideshowProps) {
         <p className="text-xl md:text-2xl text-white/80 max-w-2xl">
           {slides[currentSlide].description}
         </p>
-        <Button
-          onClick={onLoginClick}
-          size="lg"
-          className="mt-4 px-8 bg-primary hover:bg-primary/90"
-        >
-          Login to Access Dashboard
-        </Button>
+        
+        <div className="flex flex-col gap-4 items-center">
+          <Button
+            onClick={onLoginClick}
+            size="lg"
+            className="mt-4 px-8 bg-primary hover:bg-primary/90"
+          >
+            Login to Access Dashboard
+          </Button>
+
+          {/* Admin Button and Modal */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-transparent border-white text-white hover:bg-white/20"
+            onClick={() => setAdminOpen(true)}
+          >
+            Admin Panel
+          </Button>
+          
+          <AdminLoginModal 
+            open={adminOpen} 
+            onOpenChange={setAdminOpen} 
+          />
+        </div>
       </div>
 
       {/* Navigation Buttons */}

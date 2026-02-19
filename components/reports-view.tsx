@@ -27,8 +27,12 @@ interface Engineer {
 
 export function ReportsView() {
   const [reportType, setReportType] = useState<'daily' | 'weekly'>('daily');
-  const [siteName, setSiteName] = useState<(typeof CIMARA_SITES)[number]>(CIMARA_SITES[0]);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [siteName, setSiteName] = useState<string>('all');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1); // Default to 1 month ago to ensure data is visible
+    return d.toISOString().split('T')[0];
+  });
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -53,119 +57,112 @@ export function ReportsView() {
   };
 
   const generateReport = async () => {
-    if (!siteName) {
+  if (!siteName) {
+    toast({
+      title: 'Error',
+      description: 'Please select a site',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(
+      `/api/reports?type=${reportType}&siteName=${siteName}&startDate=${startDate}&endDate=${endDate}`,
+      {
+        method: 'GET',
+        credentials: 'include',
+      }
+    );
+
+    const data = await response.json();
+    setReports(data); // Set the reports data
+
+    if (data.length === 0) {
       toast({
-        title: 'Error',
-        description: 'Please select a site',
-        variant: 'destructive',
+        title: 'No Records Found',
+        description: 'Try expanding your date range.',
+        variant: 'default',
       });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await fetch(
-        `/api/reports?type=${reportType}&siteName=${siteName}&startDate=${startDate}&endDate=${endDate}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        }
-      );
-
-      const data = await response.json();
-      setReports(data);
-
+    } else {
       toast({
         title: 'Success',
-        description: 'Report generated successfully',
+        description: `Found ${data.length} records.`,
       });
-    } catch (error) {
-      console.error('Error generating report:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to generate report',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('Error generating report:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to generate report',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const exportToExcel = () => {
     if (reports.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'No data to export',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No data to export', variant: 'destructive' });
       return;
     }
 
-    const data = reports.map((report: any) => ({
-      Date: reportType === 'daily' ? report.reportDate : report.weekStartDate,
-      Site: report.siteName,
-      'Total Withdrawals': report.totalWithdrawals,
-      ...(reportType === 'daily'
-        ? { 'Equipment Used': report.equipmentUsed.map((e: any) => e.equipmentName).join(', ') }
-        : {}),
-    }));
+    // 1. Prepare and Flatten Data
+// Inside exportToExcel in components/report-view.tsx
 
-    const ws = XLSX.utils.json_to_sheet(data);
+    const data = reports.flatMap((report: any) => 
+      report.items.map((item: any) => ({
+        // Uses withdrawalDate if available, otherwise falls back to createdAt
+        'Date/Time': new Date(report.withdrawalDate || report.createdAt).toLocaleString(),
+        'Equipment Name': item.equipmentName,
+        'Quantity': item.quantityWithdrawn,
+        'Description': item.description || 'No description provided',
+        'Engineer': report.engineerName || report.name, // Matches 'name' field from your MongoDB screenshot
+        'Site': report.siteName || report.site
+      }))
+    );
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Report');
-    XLSX.writeFile(wb, `${reportType}-report-${siteName}.xlsx`);
+    const heading = [[`Inventory Report: ${siteName} (${startDate} to ${endDate})`]];
+    const ws = XLSX.utils.aoa_to_sheet(heading);
 
-    toast({
-      title: 'Success',
-      description: 'Exported to Excel successfully',
-    });
+    // 2. Define Headers
+    const headers = ['Date & Time', 'Receipt #', 'Engineer', 'Site', 'Equipment Name', 'Quantity', 'Unit', 'Description', 'Receiver'];
+    
+    XLSX.utils.sheet_add_aoa(ws, [headers], { origin: -1 });
+    XLSX.utils.sheet_add_json(ws, data, { header: headers, skipHeader: true, origin: -1 });
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Withdrawals');
+    XLSX.writeFile(wb, `Report-${siteName}-${reportType}.xlsx`);
   };
 
   const exportToPDF = () => {
-    if (reports.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'No data to export',
-        variant: 'destructive',
-      });
-      return;
-    }
+  if (reports.length === 0) return;
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+  const doc = new jsPDF('landscape'); // Switch to landscape for more columns
+  const tableData = reports.flatMap((report: any) => 
+    report.items.map((item: any) => [
+      new Date(report.withdrawalDate).toLocaleString(),
+      item.equipmentName,
+      item.quantityWithdrawn,
+      item.unit,
+      item.description || 'N/A',
+      report.engineerName
+    ])
+  );
 
-    // Add header with logo placeholder and title
-    doc.setFontSize(16);
-    doc.text('CIMARA - Equipment Withdrawal Report', pageWidth / 2, 15, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text(`Quality brings reliability`, pageWidth / 2, 22, { align: 'center' });
-    doc.text(`Site: ${siteName}`, pageWidth / 2, 30, { align: 'center' });
-    doc.text(`Report Type: ${reportType.toUpperCase()}`, pageWidth / 2, 37, { align: 'center' });
+  (doc as any).autoTable({
+    head: [['Date/Time', 'Equipment', 'Qty', 'Unit', 'Description', 'Engineer']],
+    body: tableData,
+    startY: 40,
+    styles: { fontSize: 8 }, // Smaller font to fit description
+  });
 
-    // Add table
-    const tableData = reports.map((report: any) => [
-      reportType === 'daily'
-        ? new Date(report.reportDate).toLocaleDateString()
-        : new Date(report.weekStartDate).toLocaleDateString(),
-      report.siteName,
-      report.totalWithdrawals.toString(),
-    ]);
-
-    (doc as any).autoTable({
-      head: [['Date', 'Site', 'Total Withdrawals']],
-      body: tableData,
-      startY: 45,
-    });
-
-    doc.save(`${reportType}-report-${siteName}.pdf`);
-
-    toast({
-      title: 'Success',
-      description: 'Exported to PDF successfully',
-    });
-  };
+  doc.save(`Report-${siteName}.pdf`);
+};
 
   const exportToWord = () => {
     if (reports.length === 0) {
@@ -186,25 +183,27 @@ export function ReportsView() {
         <thead>
           <tr>
             <th>Date</th>
-            <th>Site</th>
-            <th>Total Withdrawals</th>
+            <th>Receipt</th>
+            <th>Engineer</th>
+            <th>Equipment</th>
+            <th>Quantity</th>
           </tr>
         </thead>
         <tbody>
     `;
 
     reports.forEach((report: any) => {
-      htmlContent += `
-        <tr>
-          <td>${
-            reportType === 'daily'
-              ? new Date(report.reportDate).toLocaleDateString()
-              : new Date(report.weekStartDate).toLocaleDateString()
-          }</td>
-          <td>${report.siteName}</td>
-          <td>${report.totalWithdrawals}</td>
-        </tr>
-      `;
+      report.items.forEach((item: any) => {
+        htmlContent += `
+          <tr>
+            <td>${new Date(report.withdrawalDate).toLocaleDateString()}</td>
+            <td>${report.receiptNumber || '-'}</td>
+            <td>${report.engineerName}</td>
+            <td>${item.equipmentName}</td>
+            <td>${item.quantityWithdrawn} ${item.unit}</td>
+          </tr>
+        `;
+      });
     });
 
     htmlContent += `
@@ -229,7 +228,7 @@ export function ReportsView() {
     try {
       setLoading(true);
       const response = await fetch(
-        `/api/withdrawals?startDate=${startDate}&endDate=${endDate}`,
+        `/api/reports?site=all&startDate=${startDate}&endDate=${endDate}&type=${reportType}`,
         { method: 'GET' }
       );
       const withdrawals = await response.json();
@@ -286,11 +285,12 @@ export function ReportsView() {
 
             <div className="space-y-2">
               <Label htmlFor="site">Select Site</Label>
-              <Select value={siteName} onValueChange={(value) => setSiteName(value as typeof CIMARA_SITES[number])}>
+              <Select value={siteName} onValueChange={setSiteName}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select site..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All Sites</SelectItem>
                   {CIMARA_SITES.map((site) => (
                     <SelectItem key={site} value={site}>
                       {site}
@@ -336,21 +336,17 @@ export function ReportsView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground font-medium">Export Current Report:</p>
-              {reports.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <Button onClick={exportToExcel} variant="outline" className="w-full bg-transparent text-xs">
-                    Excel
-                  </Button>
-                  <Button onClick={exportToPDF} variant="outline" className="w-full bg-transparent text-xs">
-                    PDF
-                  </Button>
-                  <Button onClick={exportToWord} variant="outline" className="w-full bg-transparent text-xs">
-                    Word
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">Generate a report first</p>
-              )}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <Button onClick={exportToExcel} variant="outline" className="w-full bg-transparent text-xs">
+                  Excel
+                </Button>
+                <Button onClick={exportToPDF} variant="outline" className="w-full bg-transparent text-xs">
+                  PDF
+                </Button>
+                <Button onClick={exportToWord} variant="outline" className="w-full bg-transparent text-xs">
+                  Word
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -370,50 +366,40 @@ export function ReportsView() {
         {/* Reports Display */}
         {reports.length > 0 && (
           <div className="space-y-4">
-            <h3 className="font-semibold">Report Data</h3>
-            {reports.map((report, idx) => (
-              <div key={idx} className="border rounded-lg p-4 bg-muted/50">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Date</p>
-                    <p className="font-semibold">
-                      {reportType === 'daily'
-                        ? new Date(report.reportDate).toLocaleDateString()
-                        : `${new Date(report.weekStartDate).toLocaleDateString()} - ${new Date(report.weekEndDate).toLocaleDateString()}`}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Site</p>
-                    <p className="font-semibold">{report.siteName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Withdrawals</p>
-                    <p className="font-semibold text-lg text-primary">{report.totalWithdrawals}</p>
-                  </div>
-                </div>
-
-                {reportType === 'daily' && report.equipmentUsed.length > 0 && (
-                  <div className="mt-4 pt-4 border-t">
-                    <p className="text-sm font-semibold mb-2">Equipment Used</p>
-                    <div className="space-y-2">
-                      {report.equipmentUsed.map((item: any, i: number) => (
-                        <div key={i} className="text-sm bg-background p-2 rounded">
-                          <p>
-                            <strong>{item.equipmentName}</strong>: {item.quantityWithdrawn}{' '}
-                            {item.unit}
-                          </p>
-                          {item.engineers.length > 0 && (
-                            <p className="text-muted-foreground">
-                              Used by: {item.engineers.join(', ')}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            <h3 className="font-semibold">Report Data ({reports.length} records)</h3>
+            <div className="border rounded-md overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="p-3">Date/Time</th>
+                      <th className="p-3">Receipt</th>
+                      <th className="p-3">Equipment Details</th>
+                      <th className="p-3">Engineer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {reports.map((report, idx) => (
+                      <tr key={idx}>
+                        <td className="p-3">{new Date(report.withdrawalDate).toLocaleString()}</td>
+                        <td className="p-3">{report.receiptNumber}</td>
+                        <td className="p-3">
+                          {report.items.map((item: any, i: number) => (
+                            <div key={i} className="mb-2 border-b last:border-0 pb-1">
+                              <div className="font-bold">{item.equipmentName}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Qty: {item.quantityWithdrawn} {item.unit} | {item.description}
+                              </div>
+                            </div>
+                          ))}
+                        </td>
+                        <td className="p-3">{report.engineerName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            </div>
           </div>
         )}
 

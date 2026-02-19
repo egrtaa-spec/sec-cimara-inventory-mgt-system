@@ -1,46 +1,33 @@
 import { NextResponse } from 'next/server';
 import { requireEngineer } from '@/lib/session';
-import { getDb } from '@/lib/mongodb';
+import { getDb, getWarehouseDb } from '@/lib/mongodb';
 import * as XLSX from 'xlsx';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const engineer = requireEngineer();
-    const db = await getDb((await engineer).site);
-
+    const db = await getWarehouseDb();
     const equipment = await db.collection('equipment').find({}).toArray();
-    const withdrawals = await db.collection('withdrawals').find({}).sort({ createdAt: -1 }).toArray();
+    const withdrawals = await db.collection('withdrawals').find({}).toArray();
 
-    const ws1 = XLSX.utils.json_to_sheet(equipment.map((e: any) => ({
-      Name: e.name,
-      Category: e.category,
-      Quantity: e.quantity,
-      Unit: e.unit,
-      Location: e.location,
-      Condition: e.condition,
-    })));
-
-    const ws2 = XLSX.utils.json_to_sheet(withdrawals.map((w: any) => ({
-      Date: w.withdrawalDate,
-      Engineer: w.engineerName,
-      Description: w.description,
-      Notes: w.notes,
-      Items: (w.items || []).map((i: any) => `${i.equipmentName} (${i.quantityWithdrawn} ${i.unit})`).join('; ')
-    })));
+    const equipmentWorksheet = XLSX.utils.json_to_sheet(equipment);
+    const withdrawalsWorksheet = XLSX.utils.json_to_sheet(withdrawals);
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, 'Site Stock');
-    XLSX.utils.book_append_sheet(wb, ws2, 'Withdrawals');
+    XLSX.utils.book_append_sheet(wb, equipmentWorksheet, 'Equipment');
+    XLSX.utils.book_append_sheet(wb, withdrawalsWorksheet, 'Withdrawals');
 
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${(await engineer).site}-site-report.xlsx"`,
+    // Send file for download
+    return new NextResponse(
+      XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' }),
+      {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': 'attachment; filename=report.xlsx',
+        },
       }
-    });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Error' }, { status: 500 });
+    );
+  } catch (error) {
+    console.error(error);
+    return new NextResponse('Error exporting data', { status: 500 });
   }
 }

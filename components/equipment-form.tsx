@@ -1,20 +1,12 @@
 'use client';
 
-import React from "react"
-
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS, EQUIPMENT_UNITS } from '@/lib/constants';
 
 interface EquipmentFormProps {
@@ -49,46 +41,49 @@ export function EquipmentForm({ onSuccess }: EquipmentFormProps) {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      const response = await fetch('/api/equipment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData),
-      });
+  try {
+    const response = await fetch('/api/equipment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(formData),
+    });
 
-      if (!response.ok) throw new Error('Failed to add equipment');
+    if (!response.ok) throw new Error('Failed to add equipment');
 
-      toast({
-        title: 'Success',
-        description: 'Equipment added successfully',
-      });
+    toast({
+      title: 'Success',
+      description: 'Equipment added successfully',
+    });
 
-      setFormData({
-        name: '',
-        category: 'power-tools',
-        serialNumber: '',
-        quantity: 0,
-        unit: 'pieces',
-        location: '',
-        condition: 'good',
-      });
+    // Reset form data
+    setFormData({
+      name: '',
+      category: 'power-tools',
+      serialNumber: '',
+      quantity: 0,
+      unit: 'pieces',
+      location: '',
+      condition: 'good',
+    });
 
-      onSuccess?.();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add equipment',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Call onSuccess to refresh the equipment list
+    onSuccess?.();
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to add equipment',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <Card className="w-full max-w-2xl">
@@ -194,7 +189,6 @@ export function EquipmentForm({ onSuccess }: EquipmentFormProps) {
                 required
               />
             </div>
-
           </div>
 
           <Button type="submit" disabled={loading} className="w-full">

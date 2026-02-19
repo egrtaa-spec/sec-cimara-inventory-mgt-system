@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 
 // ✅ Define the type here to fix the missing module error
-export type SiteKey = "ENAM" | "MINFOPRA" | "SUPPTIC" | "ISMP";
+export type SiteKey = "ENAM" | "MINFOPRA" | "SUPPTIC" | "ISMP" | "SDP";
 
 export type Session = {
+  user: any;
   role: "ENGINEER" | "ADMIN"; // ✅ Match the uppercase roles
   name: string;
   username: string;

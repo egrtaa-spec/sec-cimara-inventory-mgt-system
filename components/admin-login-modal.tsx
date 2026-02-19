@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+// CRITICAL: Must be from next/navigation, NOT next/router
+import { useRouter } from 'next/navigation'; 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Shield } from 'lucide-react';
 
 export function AdminLoginModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void; }) {
+  const router = useRouter(); 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,23 +21,32 @@ export function AdminLoginModal({ open, onOpenChange }: { open: boolean; onOpenC
     setError('');
 
     try {
-      const res = await fetch('/api/auth/admin-login', {
+      // Point this to your actual login route seen in your file tree
+      const res = await fetch('/api/auth/login', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ 
+          username, 
+          password, 
+          siteName: 'MINFOPRA' // Required based on your DB setup
+        }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
 
-      if (!res.ok || !data.success) {
+      if (!res.ok) {
         setError(data.error || 'Invalid admin credentials');
         return;
       }
 
+      // If successful:
       onOpenChange(false);
-      window.location.href = '/admin/dashboard';
-    } catch {
+      
+      // Force the browser to the admin dashboard
+      router.push('/admin/dashboard'); 
+      router.refresh(); 
+
+    } catch (err) {
       setError('Connection failed. Please check your network.');
     } finally {
       setLoading(false);
@@ -45,7 +57,9 @@ export function AdminLoginModal({ open, onOpenChange }: { open: boolean; onOpenC
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center gap-2"><Shield className="h-5 w-5" /> Admin Login</DialogTitle>
+          <DialogTitle className="text-2xl flex items-center gap-2">
+            <Shield className="h-5 w-5" /> Admin Login
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleLogin} className="space-y-4 mt-4">
@@ -57,23 +71,27 @@ export function AdminLoginModal({ open, onOpenChange }: { open: boolean; onOpenC
 
           <div className="space-y-2">
             <label className="block text-sm font-medium">Admin Username</label>
-            <Input value={username} onChange={(e) => setUsername(e.target.value)} disabled={loading} required />
+            <Input 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)} 
+              disabled={loading} 
+              required 
+            />
           </div>
 
           <div className="space-y-2">
             <label className="block text-sm font-medium">Admin Password</label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} required />
+            <Input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              disabled={loading} 
+              required 
+            />
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Logging in...
-              </>
-            ) : (
-              'Login as Admin'
-            )}
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Login as Admin'}
           </Button>
         </form>
       </DialogContent>

@@ -6,17 +6,25 @@ const ADMIN = {
 };
 
 export async function POST(req: Request) {
-  const { username, password } = await req.json();
+  try {
+    const { username, password } = await req.json();
 
-  if (
-    username === ADMIN.username &&
-    password === ADMIN.password
-  ) {
-    return NextResponse.json({ success: true });
+    if (username === ADMIN.username && password === ADMIN.password) {
+      const response = NextResponse.json({ success: true });
+
+      // Create a session cookie that your proxy.ts can detect
+      response.cookies.set("admin_session", "active", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24, // 24 hours
+      });
+
+      return response;
+    }
+
+    return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+  } catch (error) {
+    return NextResponse.json({ message: "Request error" }, { status: 500 });
   }
-
-  return NextResponse.json(
-    { message: "Invalid admin credentials" },
-    { status: 401 }
-  );
 }

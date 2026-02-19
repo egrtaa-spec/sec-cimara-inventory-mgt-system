@@ -6,6 +6,7 @@ export const CIMARA_SITES = [
   'MINFOPRA',
   'SUP\'PTIC',
   'ISMP',
+  'SDP',
 ] as const;
 
 export const EQUIPMENT_UNITS = [
