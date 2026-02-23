@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 
 export async function POST(req: Request) {
   try {
     const { site, username, password } = await req.json();
+  
 
     if (!site || !username || !password) {
       return NextResponse.json(

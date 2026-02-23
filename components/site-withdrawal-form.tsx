@@ -16,6 +16,7 @@ export function SiteWithdrawalForm({ onSuccess }: { onSuccess?: () => void }) {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [withdrawalDate, setWithdrawalDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
+  const [receiverName, setReceiverName] = useState('');
   const [items, setItems] = useState<any[]>([]);
   const [current, setCurrent] = useState({ equipmentId: '', quantityWithdrawn: 0, equipmentName: '', unit: '' });
 
@@ -63,7 +64,7 @@ export function SiteWithdrawalForm({ onSuccess }: { onSuccess?: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ withdrawalDate, description, items }),
+        body: JSON.stringify({ withdrawalDate, description, receiverName, items }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed');
@@ -71,6 +72,7 @@ export function SiteWithdrawalForm({ onSuccess }: { onSuccess?: () => void }) {
       toast({ title: 'Success', description: 'Withdrawal recorded' });
       setItems([]);
       setDescription('');
+      setReceiverName('');
       onSuccess?.();
     } catch {
       toast({ title: 'Error', description: 'Failed to record withdrawal', variant: 'destructive' });
@@ -83,7 +85,7 @@ export function SiteWithdrawalForm({ onSuccess }: { onSuccess?: () => void }) {
     <Card className="w-full max-w-4xl">
       <CardHeader>
         <CardTitle>Equipment Withdrawal</CardTitle>
-        <CardDescription>Engineer name is recorded automatically. “Receiver” is now Description.</CardDescription>
+        <CardDescription>Engineer name is recorded automatically.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-6">
@@ -93,6 +95,10 @@ export function SiteWithdrawalForm({ onSuccess }: { onSuccess?: () => void }) {
               <Input type="date" value={withdrawalDate} onChange={(e)=>setWithdrawalDate(e.target.value)} required />
             </div>
             <div className="space-y-2">
+              <Label>Receiver Name</Label>
+              <Input value={receiverName} onChange={(e)=>setReceiverName(e.target.value)} placeholder="Person receiving item" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
               <Label>Description</Label>
               <Input value={description} onChange={(e)=>setDescription(e.target.value)} placeholder="Where/why it was used" />
             </div>

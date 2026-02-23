@@ -6,8 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CIMARA_SITES } from '@/lib/constants';
+
+const engineerSites = CIMARA_SITES.filter(site => site !== 'Main Warehouse');
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -15,9 +19,10 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [site, setSite] = useState<string>(CIMARA_SITES[0]);
+  const [site, setSite] = useState<string>(engineerSites[0] || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -43,7 +48,8 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
       const data = await response.json();
 
       if (data.success) {
-        window.location.href = '/dashboard';
+        router.push('/dashboard');
+        router.refresh();
       } else {
         setError(data.error || 'Invalid username or password');
       }
@@ -75,7 +81,7 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                 <SelectValue placeholder="Select site..." />
               </SelectTrigger>
               <SelectContent>
-                {CIMARA_SITES.map((s) => (
+                {engineerSites.map((s) => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
               </SelectContent>
@@ -105,9 +111,9 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
           <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
             Don't have an account?{" "}
-            <a href="/signup" className="text-blue-600 font-medium hover:underline">
+            <Link href="/signup" className="text-blue-600 font-medium hover:underline">
               Sign up here
-            </a>
+            </Link>
           </p>
         </div>
         </form>

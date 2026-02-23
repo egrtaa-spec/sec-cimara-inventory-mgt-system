@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { SESSION_COOKIE_NAME } from "@/lib/session";
 
 const ADMIN = {
   username: "cimaraceo",
@@ -12,8 +13,16 @@ export async function POST(req: Request) {
     if (username === ADMIN.username && password === ADMIN.password) {
       const response = NextResponse.json({ success: true });
 
-      // Create a session cookie that your proxy.ts can detect
-      response.cookies.set("admin_session", "active", {
+      // Create a session object matching Session type in lib/session.ts
+      const sessionData = {
+        user: { id: 'admin', username: ADMIN.username },
+        role: 'ADMIN',
+        name: 'System Administrator',
+        username: ADMIN.username,
+        site: 'ENAM' // Default site, required by type
+      };
+
+      response.cookies.set(SESSION_COOKIE_NAME, JSON.stringify(sessionData), {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         path: "/",

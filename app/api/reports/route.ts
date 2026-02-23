@@ -1,8 +1,8 @@
-
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
-import { getSession} from '@/lib/session';
+import { getSession } from '@/lib/session';
 import { SITES, siteLabel, SiteKey } from '@/lib/sites';
+import { parseISO, startOfDay, endOfDay, addDays } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,54 +16,51 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const siteParam = searchParams.get('site') || searchParams.get('siteName') || 'all';
+    const siteParam = searchParams.get('site') || 'all';
 
-   // api/reports/route.ts
+    console.log('Query Parameters:', { startDate, endDate, siteParam });
 
-const query: any = {};
+    const query: any = {};
 
-if (startDate && endDate) {
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
-  
-  // This looks for either field to ensure data is caught
-  query.$or = [
-    { withdrawalDate: { $gte: start, $lte: end } },
-    { createdAt: { $gte: start, $lte: end } }
-  ];
-}
-    
+    if (startDate && endDate) {
+      const start = parseISO(startDate);
+      const end = parseISO(endDate);
+      query.withdrawalDate = {
+        $gte: startOfDay(start),
+        $lte: endOfDay(end),
+      };
+    }
 
     let allWithdrawals: any[] = [];
 
-    const fetchFromSite = async (siteKey: SiteKey) => {
-      try {
-         const db = await getDb(siteKey);
-         const withdrawals = await db.collection('withdrawals')
-             .find(query)
-             .sort({ withdrawalDate: -1 })
-             .toArray();
-         return withdrawals.map(w => ({ ...w, siteName: siteLabel(siteKey) }));
-      } catch (error) {
-         console.error(`Failed to fetch from ${siteKey}`, error);
-         return [];
-      }
-    };
+   const fetchFromSite = async (siteDef: typeof SITES[0]) => {
+    try {
+      const db = await getDb(siteDef.dbName);
+      const withdrawals = await db.collection('withdrawals')
+        .find(query)
+        .sort({ withdrawalDate: -1 })
+        .toArray();
+      return withdrawals.map((w: any) => ({ ...w, siteName: siteDef.label }));
+    } catch (error) {
+      console.error(`Failed to fetch from ${siteDef.key}`, error);
+      return [];
+    }
+  };
 
-    if (siteParam && siteParam !== 'all') {
-      const siteDef = SITES.find(s => s.key === siteParam || s.label === siteParam);
+
+    if (siteParam !== 'all') {
+      const siteDef = SITES.find(s => s.key === siteParam);
       if (siteDef) {
-         allWithdrawals = await fetchFromSite(siteDef.key);
+        allWithdrawals = await fetchFromSite(siteDef);
       }
     } else {
       for (const site of SITES) {
-         const siteWithdrawals = await fetchFromSite(site.key);
-         allWithdrawals.push(...siteWithdrawals);
+        const siteWithdrawals = await fetchFromSite(site);
+        allWithdrawals.push(...siteWithdrawals);
       }
     }
+
+    console.log('All Withdrawals:', allWithdrawals); // Check if data is correctly fetched
 
     return NextResponse.json(allWithdrawals);
   } catch (error) {

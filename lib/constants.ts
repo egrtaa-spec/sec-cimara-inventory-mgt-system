@@ -7,6 +7,7 @@ export const CIMARA_SITES = [
   'SUP\'PTIC',
   'ISMP',
   'SDP',
+  'Main Warehouse',
 ] as const;
 
 export const EQUIPMENT_UNITS = [

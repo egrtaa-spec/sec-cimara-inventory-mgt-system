@@ -33,9 +33,9 @@ export function DashboardStats({ refreshKey }: DashboardStatsProps) {
    * - Prevents "<!DOCTYPE" crash
    * - Handles 401 properly
    */
-  const fetchJsonSafe = async (url: string, p0: { catch: string; }) => {
+  const fetchJsonSafe = async (url: string) => {
     try {
-      const response = await fetch(url, { cache: 'no-store' });
+      const response = await fetch(url, { cache: 'no-store', credentials: 'include' });
 
       // 🚨 If unauthorized → redirect to login
       if (response.status === 401) {
@@ -61,9 +61,9 @@ export function DashboardStats({ refreshKey }: DashboardStatsProps) {
 
     try {
       const [engineers, equipment, withdrawals] = await Promise.all([
-        fetchJsonSafe('/api/site/engineers', {catch: 'no-store'}),
-        fetchJsonSafe('/api/site/equipment', {catch: 'no-store'}),
-        fetchJsonSafe('/api/site/withdrawals', {catch: 'no-store'}),
+        fetchJsonSafe('/api/site/engineers'),
+        fetchJsonSafe('/api/site/equipment'),
+        fetchJsonSafe('/api/site/withdrawals'),
       ]);
 
       const safeEngineers = Array.isArray(engineers) ? engineers : [];

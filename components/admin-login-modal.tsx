@@ -22,13 +22,13 @@ export function AdminLoginModal({ open, onOpenChange }: { open: boolean; onOpenC
 
     try {
       // Point this to your actual login route seen in your file tree
-      const res = await fetch('/api/auth/login', { 
+      const res = await fetch('/api/auth/admin-login', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
           username, 
-          password, 
-          siteName: 'MINFOPRA' // Required based on your DB setup
+          password
         }),
       });
 

@@ -18,7 +18,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { exportWithdrawalsByMultipleSites } from '@/lib/excel-export';
-import { CIMARA_SITES } from '@/lib/constants';
+import { SITES, SiteKey } from '@/lib/sites';
 
 interface Engineer {
   _id: string;
@@ -27,7 +27,7 @@ interface Engineer {
 
 export function ReportsView() {
   const [reportType, setReportType] = useState<'daily' | 'weekly'>('daily');
-  const [siteName, setSiteName] = useState<string>('all');
+  const [siteKey, setSiteKey] = useState<string>('all');
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1); // Default to 1 month ago to ensure data is visible
@@ -38,8 +38,19 @@ export function ReportsView() {
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const sites = CIMARA_SITES; // Declare the sites variable
 
+  // Helper for safe date formatting
+  const safeFormatDateTime = (dateInput: any) => {
+    const date = new Date(dateInput);
+    return date instanceof Date && !isNaN(date.getTime()) ? date.toLocaleString() : 'N/A';
+  };
+
+  const safeFormatDateOnly = (dateInput: any) => {
+    const date = new Date(dateInput);
+    return date instanceof Date && !isNaN(date.getTime())
+      ? date.toLocaleDateString()
+      : 'N/A';
+  };
   useEffect(() => {
     fetchEngineers();
   }, []);
@@ -49,120 +60,162 @@ export function ReportsView() {
       const response = await fetch('/api/engineers', {
         credentials: 'include',
       });
-      const data = await response.json();
-      setEngineers(data);
+      if (response.ok) {
+        const data = await response.json().catch(() => []);
+        setEngineers(Array.isArray(data) ? data : []);
+      }
     } catch (error) {
       console.error('Error fetching engineers:', error);
     }
   };
 
   const generateReport = async () => {
-  if (!siteName) {
-    toast({
-      title: 'Error',
-      description: 'Please select a site',
-      variant: 'destructive',
-    });
-    return;
-  }
+    const selectedSite = SITES.find(s => s.key === (siteKey as SiteKey));
+    const siteLabelForFilter = siteKey === 'all' ? 'all' : selectedSite?.label;
 
-  setLoading(true);
+    console.log("Generating report with parameters:", { siteKey, startDate, endDate });
 
-  try {
-    const response = await fetch(
-      `/api/reports?type=${reportType}&siteName=${siteName}&startDate=${startDate}&endDate=${endDate}`,
-      {
-        method: 'GET',
-        credentials: 'include',
-      }
-    );
-
-    const data = await response.json();
-    setReports(data); // Set the reports data
-
-    if (data.length === 0) {
+    // Validation for inputs
+    if (!siteKey || !startDate || !endDate) {
       toast({
-        title: 'No Records Found',
-        description: 'Try expanding your date range.',
-        variant: 'default',
+        title: 'Error',
+        description: 'Please ensure all fields are filled correctly.',
+        variant: 'destructive',
       });
-    } else {
-      toast({
-        title: 'Success',
-        description: `Found ${data.length} records.`,
-      });
-    }
-  } catch (error) {
-    console.error('Error generating report:', error);
-    toast({
-      title: 'Error',
-      description: 'Failed to generate report',
-      variant: 'destructive',
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const exportToExcel = () => {
-    if (reports.length === 0) {
-      toast({ title: 'Error', description: 'No data to export', variant: 'destructive' });
       return;
     }
 
-    // 1. Prepare and Flatten Data
-// Inside exportToExcel in components/report-view.tsx
+    setLoading(true);
 
-    const data = reports.flatMap((report: any) => 
-      report.items.map((item: any) => ({
-        // Uses withdrawalDate if available, otherwise falls back to createdAt
-        'Date/Time': new Date(report.withdrawalDate || report.createdAt).toLocaleString(),
-        'Equipment Name': item.equipmentName,
-        'Quantity': item.quantityWithdrawn,
-        'Description': item.description || 'No description provided',
-        'Engineer': report.engineerName || report.name, // Matches 'name' field from your MongoDB screenshot
-        'Site': report.siteName || report.site
+    try {
+      // Adjust endDate to include the full day by adding 1 day
+      const end = new Date(endDate);
+      end.setDate(end.getDate() + 1);
+      const adjustedEndDate = end.toISOString().split('T')[0];
+
+      let rawData: any[] = [];
+      const params = new URLSearchParams({
+        type: reportType,
+        site: siteKey,
+        startDate,
+        endDate: adjustedEndDate,
+      });
+
+      const response = await fetch(`/api/reports?${params.toString()}`, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+      console.log('Site data:', data);  // Log the response here
+
+      if (Array.isArray(data)) rawData = data;
+
+      // Fetch from Warehouse Withdrawals API if no site-specific data
+      if (rawData.length === 0) {
+        const fallbackRes = await fetch('/api/warehouse/withdrawals', { cache: 'no-store' });
+        const fallbackData = await fallbackRes.json();
+
+        const start = new Date(startDate);
+        rawData = fallbackData.filter((item: any) => {
+          const itemDate = new Date(item.withdrawalDate || item.createdAt || item.date);
+          const matchesDate = itemDate >= start && itemDate <= end;
+          const matchesSite = siteLabelForFilter === 'all' || item.siteName === siteLabelForFilter || item.destinationSiteName === siteLabelForFilter;
+          return matchesDate && matchesSite;
+        });
+      }
+      
+      // Normalize data to ensure a consistent structure for rendering and exporting
+      const normalizedReports = rawData.map(report => {
+        if (Array.isArray(report.items)) {
+          return report; // Already in the correct format
+        }
+        // If not, assume a flat structure and create the 'items' array
+        return {
+          ...report,
+          items: [{
+            equipmentName: report.equipmentName,
+            quantityWithdrawn: report.quantityWithdrawn,
+            unit: report.unit,
+            description: report.description,
+          }]
+        };
+      });
+
+      setReports(normalizedReports);
+
+      if (normalizedReports.length === 0) {
+        toast({
+          title: 'No Records Found',
+          description: 'Try expanding your date range.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: `Found ${normalizedReports.length} records.`,
+        });
+      }
+    } catch (error) {
+      console.error('Fetch Error:', error);
+      toast({ title: 'Error', description: 'Failed to connect to the server.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportToExcel = () => {
+    if (!reports.length) return;
+
+    const selectedSite = SITES.find(s => s.key === (siteKey as SiteKey));
+    const siteLabel = siteKey === 'all' ? 'All Sites' : selectedSite?.label || siteKey;
+
+    const data = reports.flatMap((report: any) =>
+      (report.items || []).map((item: any) => ({
+        'Date': safeFormatDateOnly(report.withdrawalDate || report.createdAt || report.date),
+        'Receipt #': report.receiptNumber || 'N/A',
+        'Engineer': report.engineerName || report.senderName || 'Staff',
+        'Site': report.siteName || report.destinationSiteName || '-',
+        'Item': item.equipmentName,
+        'Qty': item.quantityWithdrawn,
+        'Receiver': report.receiverName || '-'
       }))
     );
 
+    const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    const heading = [[`Inventory Report: ${siteName} (${startDate} to ${endDate})`]];
-    const ws = XLSX.utils.aoa_to_sheet(heading);
-
-    // 2. Define Headers
-    const headers = ['Date & Time', 'Receipt #', 'Engineer', 'Site', 'Equipment Name', 'Quantity', 'Unit', 'Description', 'Receiver'];
-    
-    XLSX.utils.sheet_add_aoa(ws, [headers], { origin: -1 });
-    XLSX.utils.sheet_add_json(ws, data, { header: headers, skipHeader: true, origin: -1 });
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Withdrawals');
-    XLSX.writeFile(wb, `Report-${siteName}-${reportType}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Withdrawals");
+    XLSX.writeFile(wb, `CIMARA_Report_${siteLabel}_${startDate}.xlsx`);
   };
 
   const exportToPDF = () => {
-  if (reports.length === 0) return;
+    if (reports.length === 0) return;
 
-  const doc = new jsPDF('landscape'); // Switch to landscape for more columns
-  const tableData = reports.flatMap((report: any) => 
-    report.items.map((item: any) => [
-      new Date(report.withdrawalDate).toLocaleString(),
-      item.equipmentName,
-      item.quantityWithdrawn,
-      item.unit,
-      item.description || 'N/A',
-      report.engineerName
-    ])
-  );
+    const selectedSite = SITES.find(s => s.key === (siteKey as SiteKey));
+    const siteLabel = siteKey === 'all' ? 'All Sites' : selectedSite?.label || siteKey;
 
-  (doc as any).autoTable({
-    head: [['Date/Time', 'Equipment', 'Qty', 'Unit', 'Description', 'Engineer']],
-    body: tableData,
-    startY: 40,
-    styles: { fontSize: 8 }, // Smaller font to fit description
-  });
+    const doc = new jsPDF('landscape');
+    const tableData = reports.flatMap((report: any) =>
+      (report.items || []).map((item: any) => [
+        safeFormatDateTime(report.withdrawalDate),
+        report.destinationSiteName || '-',
+        item.equipmentName,
+        item.quantityWithdrawn,
+        item.unit,
+        item.description || 'N/A',
+        report.engineerName || report.senderName || '-',
+      ])
+    );
+    (doc as any).autoTable({
+      head: [['Date/Time', 'Site', 'Equipment', 'Qty', 'Unit', 'Description', 'Engineer']],
+      body: tableData,
+      startY: 40,
+      styles: { fontSize: 8 },
+    });
 
-  doc.save(`Report-${siteName}.pdf`);
-};
+    doc.save(`Report-${siteLabel}.pdf`);
+  };
 
   const exportToWord = () => {
     if (reports.length === 0) {
@@ -174,10 +227,13 @@ export function ReportsView() {
       return;
     }
 
+    const selectedSite = SITES.find(s => s.key === (siteKey as SiteKey));
+    const siteLabel = siteKey === 'all' ? 'All Sites' : selectedSite?.label || siteKey;
+
     let htmlContent = `
       <h1>CIMARA - Equipment Withdrawal Report</h1>
       <p><strong>Quality brings reliability</strong></p>
-      <p><strong>Site:</strong> ${siteName}</p>
+      <p><strong>Site:</strong> ${siteLabel}</p>
       <p><strong>Report Type:</strong> ${reportType.toUpperCase()}</p>
       <table border="1" cellpadding="10">
         <thead>
@@ -193,14 +249,14 @@ export function ReportsView() {
     `;
 
     reports.forEach((report: any) => {
-      report.items.forEach((item: any) => {
+      (report.items || []).forEach((item: any) => {
         htmlContent += `
           <tr>
-            <td>${new Date(report.withdrawalDate).toLocaleDateString()}</td>
+            <td>${safeFormatDateOnly(report.withdrawalDate)}</td>
             <td>${report.receiptNumber || '-'}</td>
-            <td>${report.engineerName}</td>
+            <td>${report.engineerName || report.senderName || '-'}</td>
             <td>${item.equipmentName}</td>
-            <td>${item.quantityWithdrawn} ${item.unit}</td>
+            <td>${item.quantityWithdrawn}</td>
           </tr>
         `;
       });
@@ -215,7 +271,7 @@ export function ReportsView() {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${reportType}-report-${siteName}.doc`;
+    link.download = `${reportType}-report-${siteLabel}.doc`;
     link.click();
 
     toast({
@@ -227,10 +283,19 @@ export function ReportsView() {
   const exportAllSitesToExcel = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/reports?site=all&startDate=${startDate}&endDate=${endDate}&type=${reportType}`,
-        { method: 'GET' }
-      );
+
+      const end = new Date(endDate);
+      end.setDate(end.getDate() + 1);
+      const adjustedEndDate = end.toISOString().split('T')[0];
+
+      const params = new URLSearchParams({
+        site: 'all',
+        startDate,
+        endDate: adjustedEndDate,
+        type: reportType,
+      });
+
+      const response = await fetch(`/api/reports?${params.toString()}`, { method: 'GET' });
       const withdrawals = await response.json();
 
       if (withdrawals.length === 0) {
@@ -242,7 +307,24 @@ export function ReportsView() {
         return;
       }
 
-      exportWithdrawalsByMultipleSites(withdrawals, startDate, endDate);
+      // Normalize data to ensure a consistent structure before exporting
+      const normalizedWithdrawals = withdrawals.map((report: any) => {
+        if (Array.isArray(report.items)) {
+          return report; // Already in the correct format
+        }
+        // If not, assume a flat structure and create the 'items' array
+        return {
+          ...report,
+          items: [{
+            equipmentName: report.equipmentName,
+            quantityWithdrawn: report.quantityWithdrawn,
+            unit: report.unit,
+            description: report.description,
+          }]
+        };
+      });
+
+      exportWithdrawalsByMultipleSites(normalizedWithdrawals, startDate, endDate);
 
       toast({
         title: 'Success',
@@ -272,10 +354,7 @@ export function ReportsView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="reportType">Report Type</Label>
-              <Tabs
-                value={reportType}
-                onValueChange={(value) => setReportType(value as 'daily' | 'weekly')}
-              >
+              <Tabs value={reportType} onValueChange={(value) => setReportType(value as 'daily' | 'weekly')}>
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="daily">Daily</TabsTrigger>
                   <TabsTrigger value="weekly">Weekly</TabsTrigger>
@@ -285,15 +364,15 @@ export function ReportsView() {
 
             <div className="space-y-2">
               <Label htmlFor="site">Select Site</Label>
-              <Select value={siteName} onValueChange={setSiteName}>
+              <Select value={siteKey} onValueChange={setSiteKey}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select site..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sites</SelectItem>
-                  {CIMARA_SITES.map((site) => (
-                    <SelectItem key={site} value={site}>
-                      {site}
+                  {SITES.map((site) => (
+                    <SelectItem key={site.key} value={site.key}>
+                      {site.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -304,23 +383,13 @@ export function ReportsView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
 
             {reportType === 'weekly' && (
               <div className="space-y-2">
                 <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+                <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </div>
             )}
           </div>
@@ -350,15 +419,11 @@ export function ReportsView() {
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground font-medium">Export All 5 Sites (Excel):</p>
-              <Button
-                onClick={exportAllSitesToExcel}
-                disabled={loading}
-                className="w-full bg-primary text-primary-foreground"
-              >
-                {loading ? 'Exporting...' : 'Multi-Site Report (5 Sheets)'}
+              <p className="text-sm text-muted-foreground font-medium">Export All Sites & Warehouse (Excel):</p>
+              <Button onClick={exportAllSitesToExcel} disabled={loading} className="w-full bg-primary text-primary-foreground">
+                {loading ? 'Exporting...' : 'Multi-Site Report'}
               </Button>
-              <p className="text-xs text-muted-foreground">Creates separate sheet for each site</p>
+              <p className="text-xs text-muted-foreground">Creates a separate sheet for each site and the warehouse.</p>
             </div>
           </div>
         </div>
@@ -374,17 +439,20 @@ export function ReportsView() {
                     <tr>
                       <th className="p-3">Date/Time</th>
                       <th className="p-3">Receipt</th>
+                      <th className="p-3">Destination Site</th>
                       <th className="p-3">Equipment Details</th>
+                      <th className="p-3">Receiver</th>
                       <th className="p-3">Engineer</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {reports.map((report, idx) => (
                       <tr key={idx}>
-                        <td className="p-3">{new Date(report.withdrawalDate).toLocaleString()}</td>
+                        <td className="p-3">{safeFormatDateTime(report.withdrawalDate)}</td>
                         <td className="p-3">{report.receiptNumber}</td>
+                        <td className="p-3">{report.destinationSiteName || '-'}</td>
                         <td className="p-3">
-                          {report.items.map((item: any, i: number) => (
+                          {(report.items || []).map((item: any, i: number) => (
                             <div key={i} className="mb-2 border-b last:border-0 pb-1">
                               <div className="font-bold">{item.equipmentName}</div>
                               <div className="text-xs text-muted-foreground">
@@ -393,7 +461,8 @@ export function ReportsView() {
                             </div>
                           ))}
                         </td>
-                        <td className="p-3">{report.engineerName}</td>
+                        <td className="p-3">{report.receiverName || '-'}</td>
+                        <td className="p-3">{report.engineerName || report.senderName || '-'}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button';
 // Ensure this import path matches your project structure
 import { AdminLoginModal } from '@/components/admin-login-modal'; 
 
+// Inside slideshow.tsx
 const slides = [
   {
     id: 1,
     title: 'Structural Excellence',
     description: 'Professional construction and foundation management',
-    image: '/equipment.jpeg',
+    image: '/equipment.jpeg', // Make sure this is in /public/equipment.jpeg
   },
   {
     id: 2,
@@ -80,6 +81,7 @@ export function Slideshow({ onLoginClick }: SlideshowProps) {
               fill
               className="object-cover"
               priority={index === 0}
+              unoptimized
             />
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/40" />
