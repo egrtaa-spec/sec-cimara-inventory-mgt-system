@@ -82,7 +82,7 @@ export default function SignupPage() {
         {/* Right Side - Form */}
         <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-slate-50">
           <div className="w-full max-w-xl">
-            <EngineerRegistrationForm onSuccess={() => router.push('/')} />
+            <EngineerRegistrationForm />
             <p className="text-center mt-6 text-sm text-slate-500">
               Already have an account? <Link href="/" className="text-primary font-semibold hover:underline">Sign in</Link>
             </p>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/session';
 import { getWarehouseDb, getSiteDb } from '@/lib/mongodb';
-import { isValidSite } from '@/lib/sites';
+import { SITES } from '@/lib/sites';
 import { ObjectId } from 'mongodb';
 
 export async function GET() {
@@ -17,13 +17,14 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const admin = requireAdmin();
+    const admin = await requireAdmin();
     const warehouse = await getWarehouseDb();
     const body = await req.json();
 
     const { siteName, withdrawalDate, receiverName, senderName, notes, items } = body;
 
-    if (!siteName || !isValidSite(siteName) || !withdrawalDate || !receiverName || !senderName || !Array.isArray(items) || items.length === 0) {
+    const isValidSite = SITES.some(s => s.key === siteName || s.label === siteName);
+    if (!siteName || !isValidSite || !withdrawalDate || !receiverName || !senderName || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
