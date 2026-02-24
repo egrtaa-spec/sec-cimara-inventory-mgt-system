@@ -19,11 +19,10 @@ export async function getSession(): Promise<Session | null> {
 }
 
 // ✅ FIX: Add these exported helper functions
-export async function requireEngineer(): Promise<Session> {
-  const session = await getSession();
-  // An admin should be able to perform engineer actions
-  if (!session || (session.role !== "ENGINEER" && session.role !== "ADMIN")) {
-    throw new Error('UNAUTHORIZED');
+export async function requireEngineer() {
+  const session = await getSession(); // or however you retrieve your session
+  if (!session || session.role !== 'ENGINEER') {
+    throw new Error('Unauthorized');
   }
   return session;
 }
