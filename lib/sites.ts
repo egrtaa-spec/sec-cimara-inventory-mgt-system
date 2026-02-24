@@ -10,7 +10,6 @@ export interface SiteDef {
 export const SITES: SiteDef[] = [
   { key: 'ENAM', label: 'ENAM', dbName: 'ENAM' },
   { key: 'MINFOPRA', label: 'MINFOPRA', dbName: 'MINFOPRA' },
-  // FIX: Change 'SUPPTIC' to "SUP'PTIC" to match your MongoDB Atlas
   { key: 'SUPPTIC', label: "SUP'PTIC", dbName: "SUP'PTIC" }, 
   { key: 'ISMP', label: 'ISMP', dbName: 'ISMP' },
   { key: 'SDP', label: 'SDP', dbName: 'SDP' },

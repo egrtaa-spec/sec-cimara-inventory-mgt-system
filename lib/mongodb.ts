@@ -34,3 +34,7 @@ export async function getDb(dbName: string): Promise<Db> {
 export async function getWarehouseDb(): Promise<Db> {
   return getDb("inventory_warehouse_main");
 }
+
+export async function getSiteDb(dbName: string): Promise<Db> {
+  return getDb(dbName);
+}
