@@ -24,6 +24,12 @@ if (process.env.NODE_ENV === "development") {
   clientPromise = client.connect();
 }
 
+// FIX: Add this function for your API routes
+export async function connectToDatabase() {
+  const client = await clientPromise;
+  return client;
+}
+
 export { clientPromise };
 
 export async function getDb(dbName: string): Promise<Db> {
@@ -33,8 +39,4 @@ export async function getDb(dbName: string): Promise<Db> {
 
 export async function getWarehouseDb(): Promise<Db> {
   return getDb("inventory_warehouse_main");
-}
-
-export async function getSiteDb(dbName: string): Promise<Db> {
-  return getDb(dbName);
 }

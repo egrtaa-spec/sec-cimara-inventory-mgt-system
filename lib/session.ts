@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { type SiteKey as AppSiteKey } from "./sites";
+import { redirect } from "next/navigation";
 
 export type SiteKey = AppSiteKey | "WAREHOUSE";
 
@@ -22,7 +23,7 @@ export async function getSession() {
 export async function requireEngineer() {
   const session = await getSession();
   if (!session || (session.role !== 'ENGINEER' && session.role !== 'ADMIN')) {
-    throw new Error('UNAUTHORIZED');
+    redirect('/login');
   }
   return session;
 }
