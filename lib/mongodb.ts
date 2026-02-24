@@ -1,4 +1,5 @@
 import { MongoClient, Db } from "mongodb";
+import { SITES } from "./sites";
 
 const uri = process.env.MONGODB_URI;
 
@@ -39,4 +40,9 @@ export async function getDb(dbName: string): Promise<Db> {
 
 export async function getWarehouseDb(): Promise<Db> {
   return getDb("inventory_warehouse_main");
+}
+
+export async function getSiteDb(siteKey: string): Promise<Db> {
+  const site = SITES.find((s) => s.key === siteKey);
+  return getDb(site ? site.dbName : siteKey);
 }
