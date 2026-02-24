@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getSession } from '@/lib/session';
-import { SITES, siteLabel, SiteKey } from '@/lib/sites';
+import { SITES, siteLabel, SiteKey, getSiteDef } from '@/lib/sites';
 import { parseISO, startOfDay, endOfDay, addDays } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -25,10 +25,10 @@ export async function GET(req: Request) {
     if (startDate && endDate) {
       const start = parseISO(startDate);
       const end = parseISO(endDate);
-      query.withdrawalDate = {
-        $gte: startOfDay(start),
-        $lte: endOfDay(end),
-      };
+      query.$or = [
+        { withdrawalDate: { $gte: startOfDay(start), $lte: endOfDay(end) } },
+        { withdrawalDate: { $gte: startDate, $lte: endDate } }
+      ];
     }
 
     let allWithdrawals: any[] = [];
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
 
 
     if (siteParam !== 'all') {
-      const siteDef = SITES.find(s => s.key === siteParam);
+      const siteDef = getSiteDef(siteParam);
       if (siteDef) {
         allWithdrawals = await fetchFromSite(siteDef);
       }

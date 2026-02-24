@@ -19,6 +19,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { exportWithdrawalsByMultipleSites } from '@/lib/excel-export';
 import { SITES, SiteKey } from '@/lib/sites';
+import { Session } from '@/lib/session';
 
 interface Engineer {
   _id: string;
@@ -37,6 +38,7 @@ export function ReportsView() {
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
   const { toast } = useToast();
 
   // Helper for safe date formatting
@@ -52,6 +54,21 @@ export function ReportsView() {
       : 'N/A';
   };
   useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const response = await fetch('/api/session');
+        if (response.ok) {
+          const sessionData = await response.json();
+          setSession(sessionData);
+          if (sessionData?.role === 'ENGINEER') {
+            setSiteKey(sessionData.site);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch session:', error);
+      }
+    };
+    fetchSession();
     fetchEngineers();
   }, []);
 
@@ -70,96 +87,45 @@ export function ReportsView() {
   };
 
   const generateReport = async () => {
-    const selectedSite = SITES.find(s => s.key === (siteKey as SiteKey));
-    const siteLabelForFilter = siteKey === 'all' ? 'all' : selectedSite?.label;
-
-    console.log("Generating report with parameters:", { siteKey, startDate, endDate });
-
-    // Validation for inputs
+    // 1. Validate inputs
     if (!siteKey || !startDate || !endDate) {
-      toast({
-        title: 'Error',
-        description: 'Please ensure all fields are filled correctly.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Please fill all fields.', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
 
     try {
-      // Adjust endDate to include the full day by adding 1 day
-      const end = new Date(endDate);
-      end.setDate(end.getDate() + 1);
-      const adjustedEndDate = end.toISOString().split('T')[0];
-
-      let rawData: any[] = [];
+      // 2. Prepare parameters
       const params = new URLSearchParams({
         type: reportType,
         site: siteKey,
-        startDate,
-        endDate: adjustedEndDate,
+        startDate: startDate,
+        endDate: endDate, // Ensure this matches what the backend expects
       });
 
+      // 3. Fetch data
       const response = await fetch(`/api/reports?${params.toString()}`, {
         method: 'GET',
         cache: 'no-store',
         credentials: 'include',
       });
 
+      if (!response.ok) throw new Error('Failed to fetch');
+
       const data = await response.json();
-      console.log('Site data:', data);  // Log the response here
-
-      if (Array.isArray(data)) rawData = data;
-
-      // Fetch from Warehouse Withdrawals API if no site-specific data
-      if (rawData.length === 0) {
-        const fallbackRes = await fetch('/api/warehouse/withdrawals', { cache: 'no-store' });
-        const fallbackData = await fallbackRes.json();
-
-        const start = new Date(startDate);
-        rawData = fallbackData.filter((item: any) => {
-          const itemDate = new Date(item.withdrawalDate || item.createdAt || item.date);
-          const matchesDate = itemDate >= start && itemDate <= end;
-          const matchesSite = siteLabelForFilter === 'all' || item.siteName === siteLabelForFilter || item.destinationSiteName === siteLabelForFilter;
-          return matchesDate && matchesSite;
-        });
-      }
       
-      // Normalize data to ensure a consistent structure for rendering and exporting
-      const normalizedReports = rawData.map(report => {
-        if (Array.isArray(report.items)) {
-          return report; // Already in the correct format
-        }
-        // If not, assume a flat structure and create the 'items' array
-        return {
-          ...report,
-          items: [{
-            equipmentName: report.equipmentName,
-            quantityWithdrawn: report.quantityWithdrawn,
-            unit: report.unit,
-            description: report.description,
-          }]
-        };
-      });
-
-      setReports(normalizedReports);
-
-      if (normalizedReports.length === 0) {
-        toast({
-          title: 'No Records Found',
-          description: 'Try expanding your date range.',
-          variant: 'default',
-        });
+      // 4. Handle results
+      if (Array.isArray(data) && data.length > 0) {
+        setReports(data); // Assuming backend returns normalized items now
+        toast({ title: 'Success', description: `Found ${data.length} records.` });
       } else {
-        toast({
-          title: 'Success',
-          description: `Found ${normalizedReports.length} records.`,
-        });
+        setReports([]);
+        toast({ title: 'No Records Found', description: 'Try expanding your date range.', variant: 'default' });
       }
     } catch (error) {
       console.error('Fetch Error:', error);
-      toast({ title: 'Error', description: 'Failed to connect to the server.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Check server connection.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -291,7 +257,7 @@ export function ReportsView() {
       const params = new URLSearchParams({
         site: 'all',
         startDate,
-        endDate: adjustedEndDate,
+        endDate: endDate,
         type: reportType,
       });
 
@@ -364,7 +330,7 @@ export function ReportsView() {
 
             <div className="space-y-2">
               <Label htmlFor="site">Select Site</Label>
-              <Select value={siteKey} onValueChange={setSiteKey}>
+              <Select value={siteKey} onValueChange={setSiteKey} disabled={session?.role === 'ENGINEER'}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select site..." />
                 </SelectTrigger>

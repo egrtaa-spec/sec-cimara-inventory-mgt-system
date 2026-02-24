@@ -6,15 +6,21 @@ export interface SiteDef {
   dbName: string;
 }
 
+// lib/sites.ts
 export const SITES: SiteDef[] = [
-  { key: 'ENAM', label: 'ENAM', dbName: 'inventory_ENAM' },
-  { key: 'MINFOPRA', label: 'MINFOPRA', dbName: 'inventory_MINFOPRA' },
-  { key: 'SUPPTIC', label: "SUP'PTIC", dbName: 'inventory_SUPPTIC' },
-  { key: 'ISMP', label: 'ISMP', dbName: 'inventory_ISMP' },
-  { key: 'SDP', label: 'SDP', dbName: 'inventory_SDP' },
+  { key: 'ENAM', label: 'ENAM', dbName: 'ENAM' },
+  { key: 'MINFOPRA', label: 'MINFOPRA', dbName: 'MINFOPRA' },
+  // FIX: Change 'SUPPTIC' to "SUP'PTIC" to match your MongoDB Atlas
+  { key: 'SUPPTIC', label: "SUP'PTIC", dbName: "SUP'PTIC" }, 
+  { key: 'ISMP', label: 'ISMP', dbName: 'ISMP' },
+  { key: 'SDP', label: 'SDP', dbName: 'SDP' },
 ];
 
 export const siteLabel = (key: string): string => {
   const site = SITES.find(s => s.key === key);
   return site ? site.label : key;
+};
+
+export const getSiteDef = (identifier: string): SiteDef | undefined => {
+  return SITES.find(s => s.key === identifier || s.label === identifier);
 };
