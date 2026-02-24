@@ -23,3 +23,7 @@ export const siteLabel = (key: string): string => {
 export const getSiteDef = (identifier: string): SiteDef | undefined => {
   return SITES.find(s => s.key === identifier || s.label === identifier);
 };
+
+export const isValidSite = (key: string): key is SiteKey => {
+  return SITES.some(s => s.key === key);
+};
