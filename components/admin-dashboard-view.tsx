@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card"
 import { ReportsView } from "@/components/reports-view"
 import { WarehouseOperationsView } from "@/components/warehouse-operations-view"
+import { WarehouseWithdrawalHistoryReport } from "@/app/admin/dashboard/warehouse-withdrawal-history"
 
 interface DashboardData {
   warehouse: {

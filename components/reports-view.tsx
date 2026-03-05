@@ -104,8 +104,14 @@ export function ReportsView() {
         endDate: endDate, // Ensure this matches what the backend expects
       });
 
+      // ✅ FIX: Use the dedicated warehouse API when 'WAREHOUSE' is selected,
+      // as it correctly queries the warehouse DB. Other sites use the general report route.
+      const apiUrl = siteKey === 'WAREHOUSE'
+        ? `/api/warehouse/withdrawals?${params.toString()}`
+        : `/api/reports?${params.toString()}`;
+
       // 3. Fetch data
-      const response = await fetch(`/api/reports?${params.toString()}`, {
+      const response = await fetch(apiUrl, {
         method: 'GET',
         cache: 'no-store',
         credentials: 'include',
@@ -117,7 +123,20 @@ export function ReportsView() {
       
       // 4. Handle results
       if (Array.isArray(data) && data.length > 0) {
-        setReports(data); // Assuming backend returns normalized items now
+        // Normalize data to ensure 'items' array exists
+        const normalizedData = data.map((report: any) => {
+          if (Array.isArray(report.items)) return report;
+          // Handle flat structure if API returns it
+          return {
+            ...report,
+            items: [{
+              equipmentName: report.equipmentName,
+              quantityWithdrawn: report.quantityWithdrawn,
+              unit: report.unit,
+            }]
+          };
+        });
+        setReports(normalizedData);
         toast({ title: 'Success', description: `Found ${data.length} records.` });
       } else {
         setReports([]);
@@ -141,11 +160,11 @@ export function ReportsView() {
       (report.items || []).map((item: any) => ({
         'Date': safeFormatDateOnly(report.withdrawalDate || report.createdAt || report.date),
         'Receipt #': report.receiptNumber || 'N/A',
-        'Engineer': report.engineerName || report.senderName || 'Staff',
-        'Site': report.siteName || report.destinationSiteName || '-',
+        'Engineer': report.engineerName || report.senderName || report.receiverName || 'Staff',
+        'Site': report.siteName || report.destinationSiteName || report.destinationSite || '-',
         'Item': item.equipmentName,
         'Qty': item.quantityWithdrawn,
-        'Receiver': report.receiverName || '-'
+        'Description': report.description || '-'
       }))
     );
 
@@ -165,7 +184,7 @@ export function ReportsView() {
     const tableData = reports.flatMap((report: any) =>
       (report.items || []).map((item: any) => [
         safeFormatDateTime(report.withdrawalDate),
-        report.destinationSiteName || '-',
+        report.destinationSiteName || report.destinationSite || '-',
         item.equipmentName,
         item.quantityWithdrawn,
         item.unit,
@@ -209,6 +228,7 @@ export function ReportsView() {
             <th>Engineer</th>
             <th>Equipment</th>
             <th>Quantity</th>
+            <th>Description</th>
           </tr>
         </thead>
         <tbody>
@@ -223,6 +243,7 @@ export function ReportsView() {
             <td>${report.engineerName || report.senderName || '-'}</td>
             <td>${item.equipmentName}</td>
             <td>${item.quantityWithdrawn}</td>
+            <td>${report.description || '-'}</td>
           </tr>
         `;
       });
@@ -336,6 +357,9 @@ export function ReportsView() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sites</SelectItem>
+                  <SelectItem value="WAREHOUSE" className="font-semibold">
+                    Warehouse
+                  </SelectItem>
                   {SITES.map((site) => (
                     <SelectItem key={site.key} value={site.key}>
                       {site.label}
@@ -407,7 +431,7 @@ export function ReportsView() {
                       <th className="p-3">Receipt</th>
                       <th className="p-3">Destination Site</th>
                       <th className="p-3">Equipment Details</th>
-                      <th className="p-3">Receiver</th>
+                      <th className="p-3">Description</th>
                       <th className="p-3">Engineer</th>
                     </tr>
                   </thead>
@@ -416,7 +440,7 @@ export function ReportsView() {
                       <tr key={idx}>
                         <td className="p-3">{safeFormatDateTime(report.withdrawalDate)}</td>
                         <td className="p-3">{report.receiptNumber}</td>
-                        <td className="p-3">{report.destinationSiteName || '-'}</td>
+                        <td className="p-3">{report.destinationSiteName || report.destinationSite || '-'}</td>
                         <td className="p-3">
                           {(report.items || []).map((item: any, i: number) => (
                             <div key={i} className="mb-2 border-b last:border-0 pb-1">
@@ -427,7 +451,7 @@ export function ReportsView() {
                             </div>
                           ))}
                         </td>
-                        <td className="p-3">{report.receiverName || '-'}</td>
+                        <td className="p-3">{report.description || '-'}</td>
                         <td className="p-3">{report.engineerName || report.senderName || '-'}</td>
                       </tr>
                     ))}

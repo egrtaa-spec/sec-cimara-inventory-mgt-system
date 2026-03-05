@@ -10,7 +10,8 @@ export interface SiteDef {
 export const SITES: SiteDef[] = [
   { key: 'ENAM', label: 'ENAM', dbName: 'ENAM' },
   { key: 'MINFOPRA', label: 'MINFOPRA', dbName: 'MINFOPRA' },
-  { key: 'SUPPTIC', label: "SUP'PTIC", dbName: "SUP'PTIC" }, 
+  // Cleaned dbName: Removed the apostrophe
+  { key: 'SUPPTIC', label: "SUP'PTIC", dbName: 'SUPPTIC' }, 
   { key: 'ISMP', label: 'ISMP', dbName: 'ISMP' },
   { key: 'SDP', label: 'SDP', dbName: 'SDP' },
 ];

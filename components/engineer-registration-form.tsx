@@ -41,8 +41,8 @@ export function EngineerRegistrationForm() {
         description: "You can now login with your credentials.",
       });
 
-      // FIX: This triggers the redirect to the login page (root)
-      router.push("/"); 
+      // Redirect to the dashboard
+      router.push("/dashboard"); 
       
     } catch (error: any) {
       toast({

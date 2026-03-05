@@ -1,140 +1,159 @@
 import { NextResponse } from 'next/server';
-import { getDb, getWarehouseDb } from '@/lib/mongodb';
-import { requireEngineer } from '@/lib/session';
+import { getDb } from '@/lib/mongodb';
+import { getSession } from '@/lib/session';
 import { ObjectId } from 'mongodb';
-import { SITES, getSiteDef } from '@/lib/sites';
-import { parseISO, startOfDay, endOfDay } from 'date-fns';
-
-export const dynamic = 'force-dynamic';
+import { SITES } from '@/lib/sites';
 
 export async function GET(req: Request) {
   try {
-    const engineer = await requireEngineer();
-    if (!engineer) {
-      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let db;
-    if (engineer.site === 'WAREHOUSE') {
-      db = await getWarehouseDb();
-    } else {
-      const siteDef = getSiteDef(engineer.site);
-      if (!siteDef) throw new Error('Invalid site assignment');
-      db = await getDb(siteDef.dbName);
+    const siteKey = session.site || session.user?.site;
+    const siteDef = SITES.find(s => s.key === siteKey);
+
+    if (!siteKey || siteKey === 'WAREHOUSE' || !siteDef) {
+      return NextResponse.json({ error: 'Invalid site assignment for this operation' }, { status: 400 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-
-    const q: any = {};
-    if (startDate && endDate) {
-      // Fix: Ensure we match both BSON Date objects and ISO Strings
-      const start = startOfDay(parseISO(startDate));
-      const end = endOfDay(parseISO(endDate));
-      
-      q.$or = [
-        { withdrawalDate: { $gte: start, $lte: end } },
-        { withdrawalDate: { $gte: startDate, $lte: endDate } }
-      ];
-    }
-
-    const withdrawals = await db.collection('withdrawals')
-      .find(q)
-      .sort({ withdrawalDate: -1 })
-      .toArray();
+    const db = await getDb(siteDef.dbName);
+    const withdrawals = await db.collection('withdrawals').find({}).sort({ withdrawalDate: -1 }).toArray();
 
     return NextResponse.json(withdrawals);
-  } catch (e: any) {
-    console.error("GET WITHDRAWALS ERROR:", e);
-    return NextResponse.json({ error: e?.message || 'Error' }, { status: 500 });
+
+  } catch (error: any) {
+    console.error("Site Withdrawals Fetch Error:", error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const engineer = await requireEngineer();
-    if (!engineer) {
-      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let db;
-    if (engineer.site === 'WAREHOUSE') {
-      db = await getWarehouseDb();
-    } else {
-      const siteDef = getSiteDef(engineer.site);
-      if (!siteDef) throw new Error('Invalid site assignment');
-      db = await getDb(siteDef.dbName);
+    // Ensure the user has a valid site assignment (not WAREHOUSE)
+    // Defensively check both session.site and session.user.site due to potential session inconsistencies
+    const siteKey = session.site || session.user?.site;
+    const siteDef = SITES.find(s => s.key === siteKey);
+
+    // Also explicitly block if the site is WAREHOUSE, as this endpoint is only for construction sites.
+    if (!siteKey || siteKey === 'WAREHOUSE' || !siteDef) {
+      return NextResponse.json({ error: 'Invalid site assignment for this operation' }, { status: 400 });
     }
 
+    const db = await getDb(siteDef.dbName);
     const body = await req.json();
-    const { withdrawalDate, description, notes, items, receiverName } = body;
+    const { withdrawalDate, items: rawItems, receiverName, description } = body;
 
-    // Validation: Ensure all required fields exist
-    if (!withdrawalDate || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'Missing Date or Items' }, { status: 400 });
+    if (!withdrawalDate || !rawItems || !Array.isArray(rawItems) || rawItems.length === 0) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Step 1: Stock Validation
+    // Sanitize items
+    const items = rawItems.map((item: any) => ({
+      ...item,
+      quantityWithdrawn: Number(item.quantityWithdrawn)
+    }));
+
+    // 1. Validate Stock
     for (const item of items) {
-      if (!item.equipmentId) {
-        return NextResponse.json({ error: `Missing ID for ${item.equipmentName}` }, { status: 400 });
-      }
       const eq = await db.collection('equipment').findOne({ _id: new ObjectId(item.equipmentId) });
-      if (!eq) return NextResponse.json({ error: `Item ${item.equipmentName} not found` }, { status: 404 });
       
-      if (Number(item.quantityWithdrawn) > Number(eq.quantity)) {
-        return NextResponse.json({ error: `Insufficient stock for ${eq.name}` }, { status: 400 });
+      if (isNaN(item.quantityWithdrawn) || item.quantityWithdrawn <= 0) {
+        return NextResponse.json({ error: `Invalid quantity for ${item.equipmentName}` }, { status: 400 });
+      }
+      
+      const currentStock = eq ? Number(eq.quantity) : 0;
+
+      if (!eq || currentStock < item.quantityWithdrawn) {
+        return NextResponse.json({ error: `Insufficient stock for ${item.equipmentName}. Available: ${currentStock}` }, { status: 400 });
       }
     }
 
-    // Step 2: Deduct Stock
+    // 2. Deduct Stock
     for (const item of items) {
       await db.collection('equipment').updateOne(
         { _id: new ObjectId(item.equipmentId) },
-        { $inc: { quantity: -Number(item.quantityWithdrawn) } }
+        { $inc: { quantity: -item.quantityWithdrawn } }
       );
     }
 
-    // Step 3: Generate Receipt Number
-    const date = new Date();
-    const year = date.getFullYear();
+    // 3. Record Withdrawal
     const count = await db.collection('withdrawals').countDocuments();
-    const receiptNumber = `RCP-${year}-${(count + 1).toString().padStart(5, '0')}`;
+    const receiptNumber = `RCP-${siteKey}-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
 
-    // Resolve site details for the record
-    const siteDef = getSiteDef(engineer.site);
-
-    // Step 4: Save Record
     const result = await db.collection('withdrawals').insertOne({
-      withdrawalDate: new Date(withdrawalDate), // Store as proper Date object
-      siteName: siteDef ? siteDef.label : engineer.site, // Save the site name explicitly
-      siteKey: siteDef ? siteDef.key : engineer.site,    // Save the site key explicitly
-      engineerName: engineer.name,
-      receiverName: receiverName || '',
-      description: description || '',
-      notes: notes || '',
+      withdrawalDate: new Date(withdrawalDate),
+      engineerName: session.user?.name || session.name || 'Engineer',
+      receiverName,
+      description,
+      destinationSite: 'Used on Site',
+      items,
       receiptNumber,
-      items: items.map((i: any) => ({
-        equipmentId: i.equipmentId,
-        equipmentName: i.equipmentName,
-        quantityWithdrawn: Number(i.quantityWithdrawn),
-        unit: i.unit,
-      })),
-      createdAt: new Date(),
+      createdAt: new Date()
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      id: String(result.insertedId), 
-      receiptNumber 
-    });
+    return NextResponse.json({ success: true, id: result.insertedId, receiptNumber });
 
-  } catch (e: any) {
-    // Crucial: Log the actual error to your terminal to find the specific cause
-    console.error('POST WITHDRAWAL ERROR DETAILS:', e);
-    return NextResponse.json({ 
-      error: e?.message || 'Internal Database Error' 
-    }, { status: 500 });
+  } catch (error: any) {
+    console.error("Site Withdrawal Error:", error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const siteKey = session.site || session.user?.site;
+    const siteDef = SITES.find(s => s.key === siteKey);
+
+    if (!siteKey || siteKey === 'WAREHOUSE' || !siteDef) {
+      return NextResponse.json({ error: 'Invalid site assignment for this operation' }, { status: 400 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Withdrawal ID is required' }, { status: 400 });
+    }
+
+    const db = await getDb(siteDef.dbName);
+    
+    // Get the withdrawal to restore stock
+    const withdrawal = await db.collection('withdrawals').findOne({ _id: new ObjectId(id) });
+
+    if (!withdrawal) {
+        return NextResponse.json({ error: 'Withdrawal not found' }, { status: 404 });
+    }
+
+    // Restore stock for each item
+    if (withdrawal.items && Array.isArray(withdrawal.items)) {
+        for (const item of withdrawal.items) {
+            if (item.equipmentId && item.quantityWithdrawn) {
+                await db.collection('equipment').updateOne(
+                    { _id: new ObjectId(item.equipmentId) },
+                    { $inc: { quantity: Number(item.quantityWithdrawn) } }
+                );
+            }
+        }
+    }
+
+    await db.collection('withdrawals').deleteOne({ _id: new ObjectId(id) });
+
+    return NextResponse.json({ success: true, message: 'Withdrawal deleted and stock restored' });
+
+  } catch (error: any) {
+    console.error("Site Withdrawal Delete Error:", error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

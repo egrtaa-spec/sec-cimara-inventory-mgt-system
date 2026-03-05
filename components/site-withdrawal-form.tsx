@@ -60,6 +60,7 @@ export function SiteWithdrawalForm({ onSuccess }: { onSuccess?: () => void }) {
     }
     setLoading(true);
     try {
+      // ✅ FIX: Use the dedicated site withdrawal endpoint
       const res = await fetch('/api/site/withdrawals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -118,12 +118,32 @@ Create a `.env.local` file in the root directory:
 # MongoDB Connection String (from Step 1.5)
 MONGODB_URI=mongodb+srv://cimara_admin:YOUR_PASSWORD@cluster0.mongodb.net/cimara_inventory?retryWrites=true&w=majority
 
+# Email Configuration (for sending material requests to admin)
+# See Step 3.1 below for how to get an App Password for Gmail
+EMAIL_USER=cimaragroup@gmail.com
+EMAIL_PASS=your-16-character-app-password
+
 # Application
 NODE_ENV=development
 PORT=3000
+
+# Public Base URL for API calls (e.g., http://localhost:3000 or your deployed URL)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
 **⚠️ IMPORTANT**: Never commit `.env.local` to git! It's already in `.gitignore`
+
+### Step 3.1: Configure Email for Notifications (Gmail Example)
+
+To enable email notifications for material requests, you need a Gmail account with an "App Password".
+
+1.  **Enable 2-Step Verification** for your Google Account if you haven't already.
+2.  Go to Google Account App Passwords.
+3.  Select "Mail" for the app and "Other (Custom name)" for the device. Name it something like "CIMARA Inventory".
+4.  Click "Generate". You will get a 16-character password. **Save this password securely.**
+
+After generating the password, add your email and the app password to the `.env.local` file as shown above.
+
 
 ### Step 4: Run the Application
 
@@ -193,6 +213,21 @@ The application will be available at `http://localhost:3000`
    ```bash
    npm run dev
    ```
+
+### Email Troubleshooting
+
+If you see "Material request sent successfully" but do not receive an email, check the following:
+
+1.  **Check Spam/Junk Folder**: The email might have been flagged as spam. Check the spam folder in the `cimaragroup@gmail.com` inbox.
+
+2.  **Verify App Password**: Ensure `EMAIL_PASS` in your `.env.local` file is a 16-character **App Password**, not your regular Google account password. If you are unsure, generate a new one.
+
+3.  **Check Google Account Security**: Log in to the `cimaragroup@gmail.com` Google account and check for any security alerts at myaccount.google.com/security. Google may block sign-in attempts from unfamiliar applications.
+
+4.  **Deployment Environment Variables**: If you have deployed your application (e.g., to Vercel), make sure you have set the `EMAIL_USER` and `EMAIL_PASS` environment variables in your Vercel project settings. The `.env.local` file is not uploaded during deployment.
+
+5.  **Server Logs**: Check the server logs (e.g., Vercel Functions logs) for any errors starting with `[EMAIL_SEND_ERROR]`. This will provide more details on why the email failed to send.
+
 
 ### Equipment Quantity Shows Zero
 

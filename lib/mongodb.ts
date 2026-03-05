@@ -43,6 +43,10 @@ export async function getWarehouseDb(): Promise<Db> {
 }
 
 export async function getSiteDb(siteKey: string): Promise<Db> {
+  // FIX: Explicitly map 'WAREHOUSE' key to the correct warehouse database
+  if (siteKey === "WAREHOUSE") {
+    return getWarehouseDb();
+  }
   const site = SITES.find((s) => s.key === siteKey);
   return getDb(site ? site.dbName : siteKey);
 }

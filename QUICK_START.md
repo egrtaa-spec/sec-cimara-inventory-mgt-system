@@ -12,6 +12,7 @@ Create `.env.local` file:
 ```env
 MONGODB_URI=mongodb://localhost:27017/cimara_inventory
 MONGODB_DB=cimara_inventory
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
 **For MongoDB Atlas (Cloud):**

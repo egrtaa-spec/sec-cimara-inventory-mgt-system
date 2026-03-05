@@ -42,6 +42,7 @@ This is your complete guide to the CIMARA Inventory Management System. Please se
 | **IMPLEMENTATION_SUMMARY.md** | Technical implementation | Developers | 20 min |
 | **MAINTENANCE.md** | Operations & troubleshooting | Admins | 30 min |
 | **DOCUMENTATION.md** | This index | Everyone | 5 min |
+| **RESPONSIVE_UX_GUIDE.md** | Responsive Design & Nav | Developers | 15 min |
 
 ## Feature Documentation by Topic
 

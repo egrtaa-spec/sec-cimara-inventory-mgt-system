@@ -4,6 +4,8 @@ import { getSession } from "@/lib/session"
 import { getDb } from "@/lib/mongodb"
 import { SITES } from "@/lib/sites"
 import { AdminDashboardView } from "@/components/admin-dashboard-view"
+import { getCalculatedWarehouseEquipment } from "@/app/api/warehouse/equipment/route"
+import { getWarehouseWithdrawals } from "@/app/api/warehouse/withdrawals/route"
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -14,58 +16,54 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 async function getAdminStats() {
+  // ✅ FIX: Fetch warehouse data directly via function calls for robustness. This avoids network issues and config errors.
+  const [warehouseEquipment, warehouseWithdrawals] = await Promise.all([
+    getCalculatedWarehouseEquipment(),
+    getWarehouseWithdrawals()
+  ]);
+
+  const warehouseStats = {
+    equipmentCount: warehouseEquipment.length,
+    withdrawalCount: warehouseWithdrawals.length,
+    lowStockCount: warehouseEquipment.filter(item => item.currentStock < 5).length,
+    recentDocs: warehouseWithdrawals
+      .sort((a, b) => new Date(b.withdrawalDate).getTime() - new Date(a.withdrawalDate).getTime())
+      .slice(0, 5)
+      .map(doc => ({
+        ...doc,
+        _id: doc._id.toString(),
+        withdrawalDate: doc.withdrawalDate,
+      }))
+  };
+
+  // Fetch data for other sites directly from DB
   const sitePromises = SITES.map(async (site) => {
     try {
       const db = await getDb(site.key);
       
-      const [equipmentCount, withdrawalCount, lowStockCount, recentDocs] = await Promise.all([
+      const [equipmentCount, withdrawalCount, lowStockCount] = await Promise.all([
         db.collection('equipment').countDocuments(),
         db.collection('withdrawals').countDocuments(),
         db.collection('equipment').countDocuments({ quantity: { $lt: 5 } }),
-        db.collection('withdrawals')
-          .find({})
-          .sort({ withdrawalDate: -1 })
-          .limit(5)
-          .toArray()
       ]);
 
       return {
-        site,
-        equipmentCount,
-        withdrawalCount,
-        lowStockCount,
-        recentDocs: recentDocs.map(doc => ({
-          ...doc,
-          _id: doc._id.toString(),
-          withdrawalDate: doc.withdrawalDate, // Keep as date object for sorting later
-        }))
+        name: site.label,
+        equipment: equipmentCount,
+        withdrawals: withdrawalCount,
+        lowStock: lowStockCount
       };
     } catch (error) {
       console.error(`Error fetching stats for ${site.key}:`, error);
       return null;
     }
   });
-
-  const results = await Promise.all(sitePromises);
-  const validResults = results.filter((r): r is NonNullable<typeof r> => r !== null);
-
-  // Separate Warehouse Data
-  const warehouseData = validResults.find(r => r.site.key === 'WAREHOUSE');
-  const sitesData = validResults.filter(r => r.site.key !== 'WAREHOUSE');
+  const siteResults = await Promise.all(sitePromises);
+  const validSiteResults = siteResults.filter((r): r is NonNullable<typeof r> => r !== null);
 
   return {
-    warehouse: {
-      equipmentCount: warehouseData?.equipmentCount || 0,
-      withdrawalCount: warehouseData?.withdrawalCount || 0,
-      lowStockCount: warehouseData?.lowStockCount || 0,
-      recentDocs: warehouseData?.recentDocs || []
-    },
-    sites: sitesData.map(r => ({
-      name: r.site.label,
-      equipment: r.equipmentCount,
-      withdrawals: r.withdrawalCount,
-      lowStock: r.lowStockCount
-    }))
+    warehouse: warehouseStats,
+    sites: validSiteResults
   };
 }
 
