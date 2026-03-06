@@ -9,17 +9,19 @@ import { WarehouseWithdrawalForm } from "@/app/admin/dashboard/warehouse-withdra
 import { WarehouseStockSummaryReport } from "@/app/admin/dashboard/warehouse-stock-summary"
 import { WarehouseWithdrawalHistoryReport } from "@/app/admin/dashboard/warehouse-withdrawal-history"
 
-export function WarehouseOperationsView() {
+export function WarehouseOperationsView({ onOperationSuccess }: { onOperationSuccess?: () => void }) {
     const [refreshKey, setRefreshKey] = useState(0);
-    const handleRefresh = () => setRefreshKey(prev => prev + 1);
+    const handleRefresh = () => {
+        setRefreshKey(prev => prev + 1);
+        if (onOperationSuccess) onOperationSuccess();
+    };
 
     return (
         <Tabs defaultValue="inventory" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="inventory">Enter Warehouse Inventory</TabsTrigger>
                 <TabsTrigger value="engineers">Register Engineers</TabsTrigger>
                 <TabsTrigger value="withdrawals">Record Warehouse Withdrawals</TabsTrigger>
-                <TabsTrigger value="report">Stock Report</TabsTrigger>
             </TabsList>
             <TabsContent value="inventory">
                 <Card>
@@ -27,7 +29,7 @@ export function WarehouseOperationsView() {
                         <CardTitle>Add New Equipment to Warehouse</CardTitle>
                         <CardDescription>Fill in the details for new materials or equipment.</CardDescription>
                     </CardHeader>
-                    <CardContent><WarehouseInventoryForm onSuccess={handleRefresh} /></CardContent>
+                    <CardContent><WarehouseInventoryForm key={`inventory-form-${refreshKey}`} onSuccess={handleRefresh} /></CardContent>
                 </Card>
             </TabsContent>
             <TabsContent value="engineers">
@@ -36,7 +38,7 @@ export function WarehouseOperationsView() {
                         <CardTitle>Register a New Engineer</CardTitle>
                         <CardDescription>Create an account for a site engineer.</CardDescription>
                     </CardHeader>
-                    <CardContent><AdminEngineerForm onSuccess={handleRefresh} /></CardContent>
+                    <CardContent><AdminEngineerForm key={`engineer-form-${refreshKey}`} onSuccess={handleRefresh} /></CardContent>
                 </Card>
             </TabsContent>
             <TabsContent value="withdrawals">
@@ -47,23 +49,12 @@ export function WarehouseOperationsView() {
                     </CardHeader>
                     <CardContent><WarehouseWithdrawalForm key={`withdrawal-form-${refreshKey}`} onSuccess={handleRefresh} /></CardContent>
                 </Card>
-            </TabsContent>
-            <TabsContent value="report">
-                 <Card>
-                     <CardHeader>
-                        <CardTitle>Warehouse Stock Report</CardTitle>
-                        <CardDescription>A summary of stock levels and withdrawal history.</CardDescription>
+                <Card className="mt-6">
+                    <CardHeader>
+                        <CardTitle>Recent Warehouse Withdrawals</CardTitle>
+                        <CardDescription>History of the last recorded withdrawals from the main warehouse.</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <Tabs defaultValue="summary" className="w-full">
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="summary">Stock Summary</TabsTrigger>
-                                <TabsTrigger value="history">Withdrawal History</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="summary"><Card><CardContent className="pt-6"><WarehouseStockSummaryReport key={`summary-${refreshKey}`} /></CardContent></Card></TabsContent>
-                            <TabsContent value="history"><Card><CardContent className="pt-6"><WarehouseWithdrawalHistoryReport key={`history-${refreshKey}`} /></CardContent></Card></TabsContent>
-                        </Tabs>
-                    </CardContent>
+                    <CardContent><WarehouseWithdrawalHistoryReport refreshTrigger={refreshKey} /></CardContent>
                 </Card>
             </TabsContent>
         </Tabs>

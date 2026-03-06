@@ -9,6 +9,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,7 +34,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/use-toast';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash } from 'lucide-react';
 
 interface CalculatedEquipment {
   _id: string;
@@ -125,11 +135,12 @@ function EditEquipmentForm({
   );
 }
 
-export function WarehouseStockSummaryReport() {
+export function WarehouseStockSummaryReport({ refreshTrigger }: { refreshTrigger?: number }) {
   const [equipment, setEquipment] = useState<CalculatedEquipment[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [editingEquipment, setEditingEquipment] = useState<CalculatedEquipment | null>(null);
+  const [deletingEquipment, setDeletingEquipment] = useState<CalculatedEquipment | null>(null);
 
   const fetchAllEquipment = useCallback(async () => {
     setLoading(true);
@@ -152,7 +163,7 @@ export function WarehouseStockSummaryReport() {
 
   useEffect(() => {
     fetchAllEquipment();
-  }, [fetchAllEquipment]);
+  }, [fetchAllEquipment, refreshTrigger]);
 
   const handleEditClick = (item: CalculatedEquipment) => {
     setEditingEquipment(item);
@@ -161,6 +172,32 @@ export function WarehouseStockSummaryReport() {
   const handleEditSuccess = () => {
     setEditingEquipment(null);
     fetchAllEquipment();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingEquipment) return;
+    try {
+      const response = await fetch(`/api/warehouse/equipment?id=${deletingEquipment._id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete equipment');
+      }
+      toast({
+        title: 'Success',
+        description: `Equipment "${deletingEquipment.name}" and its withdrawal history have been deleted.`,
+      });
+      fetchAllEquipment(); // Refresh list
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingEquipment(null);
+    }
   };
 
   if (loading) {
@@ -191,10 +228,16 @@ export function WarehouseStockSummaryReport() {
               <TableCell className="text-right font-bold">{item.currentStock}</TableCell>
               <TableCell>{item.unit}</TableCell>
               <TableCell className="text-center">
-                <Button variant="outline" size="icon" onClick={() => handleEditClick(item)}>
-                  <Pencil className="h-4 w-4" />
-                  <span className="sr-only">Edit</span>
-                </Button>
+                <div className="flex items-center justify-center gap-2">
+                  <Button variant="outline" size="icon" onClick={() => handleEditClick(item)}>
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Edit</span>
+                  </Button>
+                  <Button variant="destructive" size="icon" onClick={() => setDeletingEquipment(item)}>
+                    <Trash className="h-4 w-4" />
+                    <span className="sr-only">Delete</span>
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -214,6 +257,23 @@ export function WarehouseStockSummaryReport() {
           </DialogContent>
         </Dialog>
       )}
+
+      <AlertDialog open={!!deletingEquipment} onOpenChange={(open) => !open && setDeletingEquipment(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the equipment
+              <span className="font-semibold"> "{deletingEquipment?.name}" </span>
+              and all associated withdrawal records from the warehouse.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

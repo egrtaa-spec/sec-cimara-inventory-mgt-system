@@ -160,11 +160,12 @@ export function ReportsView() {
       (report.items || []).map((item: any) => ({
         'Date': safeFormatDateOnly(report.withdrawalDate || report.createdAt || report.date),
         'Receipt #': report.receiptNumber || 'N/A',
-        'Engineer': report.engineerName || report.senderName || report.receiverName || 'Staff',
         'Site': report.siteName || report.destinationSiteName || report.destinationSite || '-',
         'Item': item.equipmentName,
         'Qty': item.quantityWithdrawn,
-        'Description': report.description || '-'
+        'Description': report.description || '-',
+        'Sender Name': report.senderName || '-',
+        'Receiver Name': report.receiverName || '-'
       }))
     );
 
@@ -189,11 +190,12 @@ export function ReportsView() {
         item.quantityWithdrawn,
         item.unit,
         item.description || 'N/A',
-        report.engineerName || report.senderName || '-',
+        report.senderName || '-',
+        report.receiverName || '-'
       ])
     );
     (doc as any).autoTable({
-      head: [['Date/Time', 'Site', 'Equipment', 'Qty', 'Unit', 'Description', 'Engineer']],
+      head: [['Date/Time', 'Site', 'Equipment', 'Qty', 'Unit', 'Description', 'Sender', 'Receiver']],
       body: tableData,
       startY: 40,
       styles: { fontSize: 8 },
@@ -225,10 +227,11 @@ export function ReportsView() {
           <tr>
             <th>Date</th>
             <th>Receipt</th>
-            <th>Engineer</th>
             <th>Equipment</th>
             <th>Quantity</th>
             <th>Description</th>
+            <th>Sender</th>
+            <th>Receiver</th>
           </tr>
         </thead>
         <tbody>
@@ -240,10 +243,11 @@ export function ReportsView() {
           <tr>
             <td>${safeFormatDateOnly(report.withdrawalDate)}</td>
             <td>${report.receiptNumber || '-'}</td>
-            <td>${report.engineerName || report.senderName || '-'}</td>
             <td>${item.equipmentName}</td>
             <td>${item.quantityWithdrawn}</td>
             <td>${report.description || '-'}</td>
+            <td>${report.senderName || '-'}</td>
+            <td>${report.receiverName || '-'}</td>
           </tr>
         `;
       });
@@ -432,7 +436,8 @@ export function ReportsView() {
                       <th className="p-3">Destination Site</th>
                       <th className="p-3">Equipment Details</th>
                       <th className="p-3">Description</th>
-                      <th className="p-3">Engineer</th>
+                      <th className="p-3">Sender</th>
+                      <th className="p-3">Receiver</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -452,7 +457,8 @@ export function ReportsView() {
                           ))}
                         </td>
                         <td className="p-3">{report.description || '-'}</td>
-                        <td className="p-3">{report.engineerName || report.senderName || '-'}</td>
+                        <td className="p-3">{report.senderName || '-'}</td>
+                        <td className="p-3">{report.receiverName || '-'}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -73,7 +73,7 @@ export function LowStockAlerts() {
           <AlertTriangle className="h-5 w-5" />
           Low Stock Alerts
         </CardTitle>
-        <CardDescription>{lowStockItems.length} items below minimum threshold</CardDescription>
+        <CardDescription>{lowStockItems.length} items below 5 units minimum threshold</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {lowStockItems.map((item) => (

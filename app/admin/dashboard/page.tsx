@@ -23,7 +23,9 @@ async function getAdminStats() {
   ]);
 
   const warehouseStats = {
-    equipmentCount: warehouseEquipment.length,
+    equipmentCount: warehouseEquipment.reduce((total, item) => {
+      return total + (item.currentStock || 0);
+    }, 0),
     withdrawalCount: warehouseWithdrawals.length,
     lowStockCount: warehouseEquipment.filter(item => item.currentStock < 5).length,
     recentDocs: warehouseWithdrawals

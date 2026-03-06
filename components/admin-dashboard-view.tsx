@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image"
-import { useState } from "react"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { 
   Activity, 
   Package, 
   AlertTriangle, 
   TrendingUp,
+  RefreshCw,
   LayoutDashboard,
   Settings,
   FileText,
@@ -26,8 +28,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { ReportsView } from "@/components/reports-view"
 import { WarehouseOperationsView } from "@/components/warehouse-operations-view"
+import { WarehouseStockSummaryReport } from "@/app/admin/dashboard/warehouse-stock-summary"
 import { WarehouseWithdrawalHistoryReport } from "@/app/admin/dashboard/warehouse-withdrawal-history"
 
 interface DashboardData {
@@ -46,7 +50,18 @@ interface DashboardData {
 }
 
 export function AdminDashboardView({ data }: { data: DashboardData }) {
+  const router = useRouter();
   const [view, setView] = useState("main-dashboard");
+  const [showWarehouseStock, setShowWarehouseStock] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isPending, startTransition] = useTransition();
+
+  const handleRefresh = () => {
+    startTransition(() => {
+      setRefreshKey(prev => prev + 1);
+      router.refresh(); // Refreshes server-side data (stats cards, recent activity)
+    });
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -70,6 +85,12 @@ export function AdminDashboardView({ data }: { data: DashboardData }) {
                 <div className="flex items-center gap-2">
                   <Warehouse className="h-4 w-4" />
                   <span>Main Dashboard</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="warehouse-stock">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  <span>Warehouse Equipment</span>
                 </div>
               </SelectItem>
               <SelectItem value="overview">
@@ -97,18 +118,55 @@ export function AdminDashboardView({ data }: { data: DashboardData }) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <div className="border-b bg-background p-4 px-8 flex items-center gap-3 shrink-0">
-          <Image src="/logo.png" alt="CIMARA Logo" width={40} height={40} className="object-contain" />
-          <div>
-            <h1 className="text-lg font-bold text-primary">CIMARA</h1>
-            <p className="text-xs text-muted-foreground">Quality brings reliability</p>
+        <div className="border-b bg-background p-4 px-8 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <Image src="/logo.png" alt="CIMARA Logo" width={40} height={40} className="object-contain" />
+            <div>
+              <h1 className="text-lg font-bold text-primary">CIMARA</h1>
+              <p className="text-xs text-muted-foreground">Quality brings reliability</p>
+            </div>
           </div>
+          <Button onClick={handleRefresh} variant="outline" size="sm" disabled={isPending}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+            Refresh Data
+          </Button>
         </div>
         <div className="flex-1 p-8 overflow-y-auto">
         {view === "main-dashboard" && (
           <div className="space-y-6">
             <h2 className="text-3xl font-bold tracking-tight">Warehouse Operations</h2>
-            <WarehouseOperationsView />
+            <WarehouseOperationsView onOperationSuccess={handleRefresh} />
+            <div className="pt-6 border-t">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Current Warehouse Stock</h3>
+                <Button onClick={() => setShowWarehouseStock(!showWarehouseStock)} variant="outline">
+                  {showWarehouseStock ? 'Hide Stock List' : 'Show Stock List'}
+                </Button>
+              </div>
+              {showWarehouseStock && (
+                <Card>
+                  <CardHeader><CardTitle>Equipment List</CardTitle></CardHeader>
+                  <CardContent><WarehouseStockSummaryReport refreshTrigger={refreshKey} /></CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        )}
+
+        {view === "warehouse-stock" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-bold tracking-tight">Warehouse Inventory</h2>
+            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Stock</CardTitle>
+                <CardDescription>
+                  Complete list of equipment currently available in the main warehouse.
+                </CardDescription>
+              </CardHeader>
+              <CardContent><WarehouseStockSummaryReport refreshTrigger={refreshKey} /></CardContent>
+            </Card>
           </div>
         )}
 
@@ -122,12 +180,12 @@ export function AdminDashboardView({ data }: { data: DashboardData }) {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Equipment</CardTitle>
+                  <CardTitle className="text-sm font-medium">Registered Equipments</CardTitle>
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{data.warehouse.equipmentCount}</div>
-                  <p className="text-xs text-muted-foreground">In Main Warehouse</p>
+                  <p className="text-xs text-muted-foreground">Total items in stock</p>
                 </CardContent>
               </Card>
               <Card>
@@ -160,6 +218,23 @@ export function AdminDashboardView({ data }: { data: DashboardData }) {
                   <p className="text-xs text-muted-foreground">Connected Sites</p>
                 </CardContent>
               </Card>
+            </div>
+
+            <div className="space-y-4 pt-4">
+              <Button onClick={() => setShowWarehouseStock(!showWarehouseStock)} variant="outline">
+                {showWarehouseStock ? 'Hide Warehouse Equipment List' : 'Show Warehouse Equipment List'}
+              </Button>
+              {showWarehouseStock && (
+                <Card className="mt-4">
+                  <CardHeader>
+                    <CardTitle>Warehouse Stock Summary</CardTitle>
+                    <CardDescription>
+                      A live summary of all equipment in the main warehouse.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent><WarehouseStockSummaryReport refreshTrigger={refreshKey} /></CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Recent Activity */}
