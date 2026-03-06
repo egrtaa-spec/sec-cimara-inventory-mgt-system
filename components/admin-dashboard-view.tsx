@@ -12,7 +12,9 @@ import {
   LayoutDashboard,
   Settings,
   FileText,
-  Warehouse
+  Warehouse,
+  Menu,
+  X
 } from "lucide-react"
 import {
   Select,
@@ -55,6 +57,7 @@ export function AdminDashboardView({ data }: { data: DashboardData }) {
   const [showWarehouseStock, setShowWarehouseStock] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleRefresh = () => {
     startTransition(() => {
@@ -65,11 +68,29 @@ export function AdminDashboardView({ data }: { data: DashboardData }) {
 
   return (
     <div className="flex min-h-screen bg-background">
+      {/* Mobile Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 border-r bg-muted/30 p-6 flex flex-col gap-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">CIMARA</h1>
-          <p className="text-sm text-muted-foreground">Inventory System</p>
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-64 border-r p-6 flex flex-col gap-8 transition-transform duration-200 ease-in-out
+        bg-background md:bg-muted/30
+        md:translate-x-0 md:static
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-primary">CIMARA</h1>
+            <p className="text-sm text-muted-foreground">Inventory System</p>
+          </div>
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(false)}>
+            <X className="h-5 w-5" />
+          </Button>
         </div>
 
         <div className="space-y-2">
@@ -118,8 +139,11 @@ export function AdminDashboardView({ data }: { data: DashboardData }) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <div className="border-b bg-background p-4 px-8 flex items-center justify-between shrink-0">
+        <div className="border-b bg-background p-4 px-4 md:px-8 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setMobileMenuOpen(true)}>
+              <Menu className="h-5 w-5" />
+            </Button>
             <Image src="/logo.png" alt="CIMARA Logo" width={40} height={40} className="object-contain" />
             <div>
               <h1 className="text-lg font-bold text-primary">CIMARA</h1>

@@ -94,24 +94,26 @@ export function Header({ siteName: propSiteName, compact = false, showAdminButto
   }
 
   return (
-    <div className="bg-primary text-primary-foreground py-6 px-6 border-b border-border shadow-lg">
-      <div className="max-w-7xl mx-auto flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Image src="/logo.png" alt="CIMARA Logo" width={60} height={60} className="object-contain" />
-          <div>
-            <h1 className="text-3xl font-bold">CIMARA</h1>
-            <p className="text-sm opacity-90">Quality brings reliability</p>
+    <div className="bg-primary text-primary-foreground py-4 px-4 md:py-6 md:px-6 border-b border-border shadow-lg">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
+          <Image src="/logo.png" alt="CIMARA Logo" width={60} height={60} className="object-contain w-12 h-12 md:w-[60px] md:h-[60px]" />
+          <div className="text-center md:text-left">
+            <h1 className="text-2xl md:text-3xl font-bold">CIMARA</h1>
+            <p className="text-xs md:text-sm opacity-90">Quality brings reliability</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex flex-col md:flex-row items-center gap-3 pt-2 md:pt-0 w-full md:w-auto">
           {displaySite !== 'General Warehouse' && (
-            <div className="text-right">
-              <p className="text-lg font-semibold">{displaySite}</p>
+            <div className="text-center md:text-right">
+              <p className="text-base md:text-lg font-semibold">{displaySite}</p>
             </div>
           )}
-          {AdminBtn}
-          {RequestMaterialBtn}
-          <LogoutButton />
+          <div className="flex flex-wrap justify-center gap-2">
+            {AdminBtn}
+            {RequestMaterialBtn}
+            <LogoutButton />
+          </div>
         </div>
       </div>
     </div>

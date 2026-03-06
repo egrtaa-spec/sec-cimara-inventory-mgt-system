@@ -220,41 +220,45 @@ export function SiteEquipmentList() {
 
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead className="text-right">Quantity</TableHead>
-            <TableHead>Unit</TableHead>
-            <TableHead>Condition</TableHead>
-            <TableHead className="text-center">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {equipment.map((item) => (
-            <TableRow key={item._id}>
-              <TableCell className="font-medium">{item.name}</TableCell>
-              <TableCell>{item.category}</TableCell>
-              <TableCell className="text-right">{item.quantity}</TableCell>
-              <TableCell>{item.unit}</TableCell>
-              <TableCell>{item.condition}</TableCell>
-              <TableCell className="text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <Button variant="outline" size="icon" onClick={() => handleEditClick(item)}>
-                    <Pencil className="h-4 w-4" />
-                    <span className="sr-only">Edit</span>
-                  </Button>
-                  <Button variant="destructive" size="icon" onClick={() => setDeletingEquipment(item)}>
-                    <Trash className="h-4 w-4" />
-                    <span className="sr-only">Delete</span>
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <div className="rounded-md border overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Quantity</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead>Condition</TableHead>
+                <TableHead className="text-center">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {equipment.map((item) => (
+                <TableRow key={item._id}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell>{item.category}</TableCell>
+                  <TableCell className="text-right">{item.quantity}</TableCell>
+                  <TableCell>{item.unit}</TableCell>
+                  <TableCell>{item.condition}</TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Button variant="outline" size="icon" onClick={() => handleEditClick(item)}>
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      <Button variant="destructive" size="icon" onClick={() => setDeletingEquipment(item)}>
+                        <Trash className="h-4 w-4" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
       {editingEquipment && (
         <Dialog open={!!editingEquipment} onOpenChange={(open) => !open && setEditingEquipment(null)}>

@@ -40,7 +40,7 @@ const DashboardPage = () => {
           </Button>
         </div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 gap-2 mb-6 text-xs lg:text-sm">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-6 h-auto text-xs lg:text-sm">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="engineers">Engineers</TabsTrigger>
             <TabsTrigger value="equipment">Equipment</TabsTrigger>
