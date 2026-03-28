@@ -48,6 +48,7 @@ export function WarehouseOperationsView({ onOperationSuccess }: { onOperationSuc
                         <CardDescription>This is for transferring equipment from the main warehouse to a site or person.</CardDescription>
                     </CardHeader>
                     <CardContent><WarehouseWithdrawalForm key={`withdrawal-form-${refreshKey}`} onSuccess={handleRefresh} /></CardContent>
+                    <CardContent className="overflow-y-auto max-h-[calc(100vh-240px)]"><WarehouseWithdrawalForm key={`withdrawal-form-${refreshKey}`} onSuccess={handleRefresh} /></CardContent>
                 </Card>
                 <Card className="mt-6">
                     <CardHeader>

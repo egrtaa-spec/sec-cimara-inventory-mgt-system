@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/mongodb';
+import { getDb, getWarehouseDb, connectToDatabase } from '@/lib/mongodb';
 import { getSession } from '@/lib/session';
 import { ObjectId } from 'mongodb';
 import { SITES } from '@/lib/sites';
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 // This function is imported by the admin dashboard page
 export async function getWarehouseWithdrawals() {
-    const db = await getDb('WAREHOUSE');
+    const db = await getWarehouseDb();
     const withdrawals = await db.collection('withdrawals').find({}).sort({ withdrawalDate: -1 }).toArray();
     return withdrawals;
 }
@@ -21,7 +21,20 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const withdrawals = await getWarehouseWithdrawals();
-        return NextResponse.json(withdrawals);
+        
+        // Map results to ensure ObjectIds are converted to strings for the frontend
+        const serializedWithdrawals = withdrawals.map(w => ({
+            ...w,
+            _id: w._id.toString(),
+            items: w.items.map((item: any) => ({
+                ...item,
+                equipmentId: item.equipmentId?.toString()
+            }))
+        }));
+
+        return NextResponse.json(serializedWithdrawals, {
+            headers: { 'Cache-Control': 'no-store, max-age=0' }
+        });
     } catch (error: any) {
         console.error("Warehouse Withdrawals Fetch Error:", error);
         return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
@@ -29,8 +42,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-    const db = await getDb('WAREHOUSE');
-    const client = db.client;
+    const client = await connectToDatabase();
+    const db = await getWarehouseDb();
     const transactionSession = client.startSession();
 
     try {
@@ -138,7 +151,7 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ error: 'Withdrawal ID is required' }, { status: 400 });
         }
 
-        const db = await getDb('WAREHOUSE');
+        const db = await getWarehouseDb();
         
         const withdrawal = await db.collection('withdrawals').findOne({ _id: new ObjectId(id) });
         if (!withdrawal) {

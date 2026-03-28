@@ -143,7 +143,7 @@ export function MaterialRequestForm({
       </div>
 
       {/* Item List */}
-      <div className="space-y-3">
+      <div className="space-y-3 max-h-[200px] overflow-y-auto">
         {items.map((item) => (
           <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border">
             <span>{item.name} (x{item.quantity} {item.unit})</span>

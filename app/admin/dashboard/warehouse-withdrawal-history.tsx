@@ -34,7 +34,10 @@ export function WarehouseWithdrawalHistoryReport({ refreshTrigger }: { refreshTr
     const fetchHistory = useCallback(async () => {
         setLoading(true);
         try {
-            const withdrawalRes = await fetch('/api/warehouse/withdrawals');
+            // Added cache: 'no-store' to ensure we get the latest data after a POST
+            const withdrawalRes = await fetch('/api/warehouse/withdrawals', {
+                cache: 'no-store'
+            });
             if (!withdrawalRes.ok) throw new Error('Failed to fetch withdrawals');
 
             const withdrawals = await withdrawalRes.json();
