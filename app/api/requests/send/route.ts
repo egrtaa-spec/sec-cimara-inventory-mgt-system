@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
     const mailOptions = {
       from: `"CIMARA Inventory" <${process.env.EMAIL_USER}>`,
-      to: 'egrtaa@gmail.com',
+      to: 'cimarawims@gmail.com',
       subject: `New Material Request from ${finalSiteName}`,
       html: createInvoiceHtml(finalSiteName, engineerName, items),
     };
